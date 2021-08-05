@@ -9,6 +9,15 @@ typedef std::pair<edge_t, double> wtEdge_t;
 
 
 const double INFTY = std::numeric_limits<double>::infinity();
+void prefixSumExclusive(int n, int *A);
+
+struct compareWtEdges
+{
+    inline bool operator() (const wtEdge_t& wte1, const wtEdge_t& wte2)
+    {
+        return (wte1.second > wte2.second);
+    }
+};
 
 class parallelBoruvka_t
 {

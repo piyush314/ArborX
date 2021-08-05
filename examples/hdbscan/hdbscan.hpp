@@ -12,19 +12,13 @@ class hdbscan_t
     int m_kpts;        // used for HDBSCAN core distance computation
     std::vector<std::vector<double>> m_points;
     std::vector<wtEdge_t> wtMST;
-    incidenceMatrix_t m_inmatMST;
+    incidenceMatrix_t m_inMatMST;
 
 public:
     hdbscan_t(std::vector<std::vector<double>> &pts, int k_pts);
 };
 
-struct compareWtEdges
-{
-    inline bool operator() (const wtEdge_t& wte1, const wtEdge_t& wte2)
-    {
-        return (wte1.second < wte2.second);
-    }
-};
+
 
 hdbscan_t::hdbscan_t(std::vector<std::vector<double>> &pts, int k_pts) : m_points(pts), m_kpts(k_pts)
 {
@@ -36,4 +30,7 @@ hdbscan_t::hdbscan_t(std::vector<std::vector<double>> &pts, int k_pts) : m_point
 
     // sort the edges 
     std::sort(wtMST.begin(),wtMST.end(),compareWtEdges() );
+    // create the incidence matrix 
+    incidenceMatrix_t icmat(wtMST);
+    // m_inMatMST = icmat;
 };

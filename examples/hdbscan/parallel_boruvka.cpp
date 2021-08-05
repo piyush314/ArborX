@@ -69,7 +69,7 @@ void parallelBoruvka_t::updateMST()
             // m_MST[numEdgesMST + m_pfxsum[c_idx]] = std::make_pair(cc_SrcVertex, cc_DstVertex);
             // std::cout << "Adding (" << cc_SrcVertex << " " << cc_DstVertex << ") at " << numEdgesMST + m_pfxsum[c_idx] << "\n";
             m_MST[numEdgesMST + m_pfxsum[c_idx]] = m_parent[cc];
-            std::cout << "Adding (" << m_parent[cc].first << " " << m_parent[cc].second << ") at " << numEdgesMST + m_pfxsum[c_idx] << "\n";
+            // std::cout << "Adding (" << m_parent[cc].first << " " << m_parent[cc].second << ") at " << numEdgesMST + m_pfxsum[c_idx] << "\n";
         }
         else
         {
@@ -141,10 +141,12 @@ void parallelBoruvka_t::updateComponents()
 
     // update number of components
     m_numComponents -= m_pfxsum[m_numComponents];
+    #if(0)
     std::cout << "Number of components is " << m_numComponents << "\n";
     for (int i = 0; i < m_numComponents; i++)
         std::cout << m_listC[i] << " ";
     std::cout << "\n";
+    #endif 
 }
 
 double parallelBoruvka_t::distSqEuclidean(int v1, int v2)
@@ -202,13 +204,20 @@ void parallelBoruvka_t::computeCandidateEdges()
 
 void parallelBoruvka_t::writeMST(std::ofstream &outfile)
 {
-    for (auto edge : m_MST)
+    std::vector<wtEdge_t> stWtMST = weightedMST();
+    // for (auto edge : m_MST)
+    // {
+    //     outfile << edge.first << " " << edge.second << "\n";
+    // }
+
+    // stWtMST
+    for (auto edge : stWtMST)
     {
-        outfile << edge.first << " " << edge.second << "\n";
+        outfile << edge.first.first << " " << edge.first.second << "\n";
     }
 }
 
-
+// returns sorted MST by edge weights 
 std::vector<wtEdge_t> parallelBoruvka_t::weightedMST()
 {
     std::vector<wtEdge_t> wtmst; 
@@ -217,5 +226,6 @@ std::vector<wtEdge_t> parallelBoruvka_t::weightedMST()
         wtEdge_t wte(edge, distSqEuclidean(edge.first, edge.second));
         wtmst.push_back(wte);
     }
+    std::sort(wtmst.begin(),wtmst.end(),compareWtEdges() );
     return wtmst; 
 }
