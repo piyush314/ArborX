@@ -4,7 +4,21 @@ add_executable(ArborX_HDBSCAN.exe
   incidence_matrix.cpp 
   main.cpp
 )
+
 set_target_properties(ArborX_HDBSCAN.exe PROPERTIES
+  CXX_STANDARD 14
+  CXX_EXTENSIONS OFF
+)
+
+add_executable(ArborX_mst2cluster.exe
+  parallel_boruvka.cpp
+  edge_hierarchy.cpp
+  incidence_matrix.cpp 
+  mst2cluster.cpp
+)
+
+
+set_target_properties(ArborX_mst2cluster.exe PROPERTIES
   CXX_STANDARD 14
   CXX_EXTENSIONS OFF
 )

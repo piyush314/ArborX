@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <iostream>
+#include <cassert> 
 #include <sstream>
 #include "edge_hierarchy.hpp"
 #include "incidence_matrix.hpp"
@@ -46,8 +47,8 @@ std::vector<int>  edgeHierarchy_t::constructFlatMap(std::vector<int>& delta)
         }
 
         // Marking noise points     
-        if(flatClusterMap[vtxId] == first_true_cluster)
-            flatClusterMap[vtxId]=-1;
+        // if(flatClusterMap[vtxId] == first_true_cluster)
+        //     flatClusterMap[vtxId]=-1;
     }
 
     return flatClusterMap;
@@ -59,23 +60,25 @@ std::vector<int> edgeHierarchy_t::computeDelta()
     auto sHatScore =m_stabilityScore;
     std::vector<int> delta(m_npts - 1, 1);   
 
-    // std::vector<int> clDescends(m_npts - 1, 0);
+    std::vector<int> clDescends(m_npts - 1, 0);
     
     // Leaf cluster stabilty caclulation
-    // for (int vtx = 0; vtx < m_npts; vtx++)
-    // {
-    //     int parent = m_vertexMaxIncidentEdgeId[vtx];
-    //     int lambdaMaxCluster = -1;
-    //     while (parent > -1)
-    //     {
-    //         if (isValidCluster(parent))
-    //         {
-    //             clDescends[parent]++;
-    //             break;
-    //         }
-    //         parent = m_edgeParent[parent];
-    //     }
-    // }
+    for (int vtx = 0; vtx < m_npts; vtx++)
+    {
+        int parent = m_vertexMaxIncidentEdgeId[vtx];
+        int lambdaMaxCluster = -1;
+        while (parent > -1)
+        {
+            if (isValidCluster(parent))
+            {
+                clDescends[parent]++;
+                break;
+            }
+            parent = m_edgeParent[parent];
+        }
+    }
+
+    std::vector<int> descCount(m_npts,0); 
 
     // calculate stability
     
@@ -89,10 +92,28 @@ std::vector<int> edgeHierarchy_t::computeDelta()
             {
                 if (isTrueCluster(parent))
                 {
-                    if(m_numChildCluster[edgeId]==2)
-                        m_stabilityScore[parent] += m_numDescendents[edgeId] / m_wtSortedMST[edgeId].second;
-                    // else 
-                    //     m_stabilityScore[parent] += clDescends[edgeId] / m_wtSortedMST[edgeId].second;
+                    
+                    if(0)
+                    {
+                        int grandParent = m_edgeParent[parent];
+                        m_stabilityScore[parent] += m_numDescendents[edgeId] *
+                        ( 1.0/ m_wtSortedMST[edgeId].second - 1.0/ m_wtSortedMST[grandParent].second);
+                    }
+                    else
+                    {
+                        int grandParent = m_edgeParent[parent];
+                        double tmpScore =( 1.0/ m_wtSortedMST[edgeId].second - 1.0/ m_wtSortedMST[grandParent].second);
+                        if(m_numChildCluster[edgeId]==2)
+                            m_stabilityScore[parent] += m_numDescendents[edgeId] * tmpScore;
+                        else 
+                            m_stabilityScore[parent] += clDescends[edgeId] *tmpScore;
+
+                        if(m_numChildCluster[edgeId]==2)
+                            descCount[parent] += m_numDescendents[edgeId] ;
+                        else 
+                            descCount[parent] += clDescends[edgeId];
+                    }
+                        
                     break;
                 }
                 else
@@ -106,9 +127,10 @@ std::vector<int> edgeHierarchy_t::computeDelta()
         if (isTrueCluster(edgeId) && edgeId != 0)
         {
             parent = m_edgeParent[parent];
+            assert(descCount[edgeId]==m_numDescendents[edgeId]);
             
-            m_stabilityScore[edgeId] -= m_numDescendents[edgeId] / m_wtSortedMST[parent].second;
-            // std::cout << edgeId << " \t : stability score =" << m_stabilityScore[edgeId] << "\n";
+            // m_stabilityScore[edgeId] -= m_numDescendents[edgeId] / m_wtSortedMST[parent].second;
+            std::cout << edgeId << " \t : stability score =" << m_stabilityScore[edgeId] << "\n";
             if(sHatScore[edgeId]> m_stabilityScore[edgeId])
             {
                 delta[edgeId] =0;
@@ -117,7 +139,7 @@ std::vector<int> edgeHierarchy_t::computeDelta()
             {
                 sHatScore[edgeId]= m_stabilityScore[edgeId];
             }
-            // std::cout<<"sHat =  "<<sHatScore[edgeId]<<" "<<delta[edgeId]<< "\n";
+            std::cout<<"sHat =  "<<sHatScore[edgeId]<<" "<<delta[edgeId]<< "\n";
             sHatScore[parent] += sHatScore[edgeId];
         }
     }
