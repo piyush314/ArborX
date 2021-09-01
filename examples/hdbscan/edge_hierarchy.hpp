@@ -42,6 +42,7 @@ class edgeHierarchy_t
     edgeHierarchy_t(std::vector<wtEdge_t>& wtSortedMST, int minClusterSize);
 
     void constructEdgeTree();
+    void constructEdgeTreeBottomUP();
     std::vector<int>  constructFlatMap(std::vector<int>& delta);
     std::vector<int> computeDelta();
 

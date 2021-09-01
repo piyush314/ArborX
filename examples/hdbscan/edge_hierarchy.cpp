@@ -5,7 +5,7 @@
 #include "edge_hierarchy.hpp"
 #include "incidence_matrix.hpp"
 
-int visitCount = 0;
+int visitloopCount = 0;
 
 void edgeHierarchy_t::constructEdgeTree()
 {
@@ -23,7 +23,85 @@ void edgeHierarchy_t::constructEdgeTree()
         if (isValidCluster(edgeId))
             m_numChildCluster[m_edgeParent[edgeId]] += 1;
     }
-    std::cout<<"== Total visits are " <<visitCount<< "\n";
+    std::cout<<"== Total visits are " <<visitloopCount<< "\n";
+}
+
+std::vector<int> mergeOutSets(std::vector<int>&A, std::vector<int>&B)
+{
+    std::vector<int> AB;
+    AB.reserve(A.size() + B.size());
+    AB.insert(AB.end(), A.begin(), A.end());
+    AB.insert(AB.end(), B.begin(), B.end());
+    
+    return AB;
+}
+
+int loopCount =0; 
+void edgeHierarchy_t::constructEdgeTreeBottomUP()
+{
+
+    // first n-1, corresponds to edges, following n corresponds to vertices 
+    std::vector<std::vector<int>> outSet(2*m_npts-1);
+    std::vector<int>  nChildrenProcessed(m_npts-1, 0);
+    std::vector<std::vector<int>>  childrenList(m_npts-1, std::vector<int>(2,-1)); 
+    std::vector<int>  isEdgeProcessed(m_npts-1, 0);
+    // initialize outsets 
+
+    for(int vtxId =0; vtxId< m_npts; vtxId++)
+    {
+        int parent = m_vertexMaxIncidentEdgeId[vtxId];
+        for (int k = 0; k < m_incMatMST.numIncidentEdge(vtxId); k++)
+            if(m_incMatMST.k_thIncidentEdge(vtxId,k) != parent)
+                outSet[m_npts-1 + vtxId].push_back(m_incMatMST.k_thIncidentEdge(vtxId,k));
+        
+        
+        childrenList[parent][nChildrenProcessed[parent]] = m_npts-1 + vtxId;     
+
+        nChildrenProcessed[parent]++;
+        // m_numDescendents[parent]++; 
+    }
+
+    int edgesNotProcessed = m_npts-1;
+    while(edgesNotProcessed>1)      // no need to process vertex zero
+    {
+        for ( int edgeId = 0; edgeId < m_npts-1; edgeId++)
+        {
+            /* code */
+            if(!isEdgeProcessed[edgeId]  // edge is not processed
+                && nChildrenProcessed[edgeId]==2)        // both its childrens are processed
+            {
+                // std::cout<<"Processing " <<edgeId<<"\n";
+                int left = childrenList[edgeId][0];
+                int right = childrenList[edgeId][1];
+                // main compute step 
+                outSet[edgeId] = mergeOutSets(outSet[left], outSet[right]);
+                auto parentIt = std::max_element(outSet[edgeId].begin(), outSet[edgeId].end());
+
+                // up
+                m_edgeParent[edgeId] = *parentIt;
+                // std::cout<<"Parent is "<< m_edgeParent[edgeId]<<"\n";
+                int outsetSize = outSet[edgeId].size(); 
+                if(parentIt != outSet[edgeId].end()-1)
+                    *parentIt =outSet[edgeId][outsetSize-1]; // set to last element 
+                outSet[edgeId].resize(outsetSize-1);
+
+                int parent = m_edgeParent[edgeId];
+                childrenList[parent][nChildrenProcessed[parent]] = edgeId; 
+                nChildrenProcessed[parent]++;
+                m_numDescendents[parent] += m_numDescendents[edgeId];
+                if (isValidCluster(edgeId))
+                    m_numChildCluster[parent] += 1;
+                
+                isEdgeProcessed[edgeId] =1; 
+                // reduce index 
+                edgesNotProcessed--;
+            }
+        }
+        
+        // std::cout<<"edgesNotProcessed" << edgesNotProcessed<<"\n"; 
+        // loopCount++;
+        // if(loopCount==100) exit(0);
+    }
 }
 
 std::vector<int>  edgeHierarchy_t::constructFlatMap(std::vector<int>& delta)
@@ -78,7 +156,7 @@ std::vector<int> edgeHierarchy_t::computeDelta()
         }
     }
 
-    std::vector<int> descCount(m_npts,0); 
+    std::vector<int> descloopCount(m_npts,0); 
 
     // calculate stability
     
@@ -117,9 +195,9 @@ std::vector<int> edgeHierarchy_t::computeDelta()
                                 m_stabilityScore[parent] += clDescends[edgeId] *tmpScore;
 
                             if(m_numChildCluster[edgeId]==2)
-                                descCount[parent] += m_numDescendents[edgeId] ;
+                                descloopCount[parent] += m_numDescendents[edgeId] ;
                             else 
-                                descCount[parent] += clDescends[edgeId];
+                                descloopCount[parent] += clDescends[edgeId];
                         }
                         
                     }
@@ -137,12 +215,12 @@ std::vector<int> edgeHierarchy_t::computeDelta()
         if (isTrueCluster(edgeId) && edgeId != 0)
         {
             
-            // assert(descCount[edgeId]==m_numDescendents[edgeId]);
+            // assert(descloopCount[edgeId]==m_numDescendents[edgeId]);
             
             // m_stabilityScore[edgeId] -= m_numDescendents[edgeId] / m_wtSortedMST[parent].second;
             std::cout << edgeId << " \t : stability score =" << m_stabilityScore[edgeId] <<
             "\t sHat ="<<sHatScore[edgeId] << "\n";
-            std::cout<<"COunted desc "<<descCount[edgeId]<< " atcual descendent " << m_numDescendents[edgeId]<<"\n";
+            std::cout<<"loopCOunted desc "<<descloopCount[edgeId]<< " atcual descendent " << m_numDescendents[edgeId]<<"\n";
             if(sHatScore[edgeId]> m_stabilityScore[edgeId])
             {
                 delta[edgeId] =0;
@@ -196,7 +274,7 @@ m_wtSortedMST(wtSortedMST), m_incMatMST(wtSortedMST), m_minClusterSize(minCluste
         m_lastVisitVertexValue[vtx] = parent; 
     }
 
-    constructEdgeTree();
+    constructEdgeTreeBottomUP();
 
     auto delta = computeDelta();
     m_flatClusterMap = constructFlatMap(delta);
@@ -206,20 +284,23 @@ m_wtSortedMST(wtSortedMST), m_incMatMST(wtSortedMST), m_minClusterSize(minCluste
 
 int edgeHierarchy_t::visit(int vtxId, int edgeId)
 {
-    // count++;
-    visitCount++;
+    // loopCount++;
+    
     
     if (m_lastVisitedEdge[vtxId] == edgeId)
         return -1;
     m_lastVisitedEdge[vtxId] = edgeId;
     
     if (m_lastVisitVertexValue[vtxId] < edgeId)
+    {
         return m_lastVisitVertexValue[vtxId];
+    }
     else
     {
         int vst_v_e = -1;
         for (int k = 0; k < m_incMatMST.numIncidentEdge(vtxId); k++)
         {
+            visitloopCount++;
             auto kthEdge = m_incMatMST.k_thIncidentEdge(vtxId, k);
             // std::cout<<kthEdge<<" "<<k<<" ";
             if (kthEdge == edgeId)
@@ -250,7 +331,7 @@ std::vector<std::vector<int>> edgeHierarchy_t::eh2vecofvec()
     {
         std::cout << "Vertex=" << vtx << "\n";
         int parent = m_vertexMaxIncidentEdgeId[vtx];
-        int count = 0;
+        int loopCount = 0;
         while (parent > -1)
         {
             std::cout << "\t Parent=" << parent << "\n";
