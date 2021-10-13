@@ -4,28 +4,6 @@
 #include <sstream>
 #include "edge_hierarchy.hpp"
 #include "incidence_matrix.hpp"
-
-int visitloopCount = 0;
-
-void edgeHierarchy_t::constructEdgeTree()
-{
-
-    // can be done in parallel 
-    for (int edgeId = m_npts - 2; edgeId > 0; edgeId--)
-    {
-        
-        auto x1 = visit(m_wtSortedMST[edgeId].first.first, edgeId);
-        auto x2 = visit(m_wtSortedMST[edgeId].first.second, edgeId);
-        m_edgeParent[edgeId] = std::max(x1, x2);
-        // Add descendents to parent
-        m_numDescendents[m_edgeParent[edgeId]] += m_numDescendents[edgeId];
-        // if I am a valid cluster
-        if (isValidCluster(edgeId))
-            m_numChildCluster[m_edgeParent[edgeId]] += 1;
-    }
-    std::cout<<"== Total visits are " <<visitloopCount<< "\n";
-}
-
 std::vector<int> mergeOutSets(std::vector<int>&A, std::vector<int>&B)
 {
     std::vector<int> AB;
@@ -36,11 +14,43 @@ std::vector<int> mergeOutSets(std::vector<int>&A, std::vector<int>&B)
     return AB;
 }
 
-int loopCount =0; 
-void edgeHierarchy_t::constructEdgeTreeBottomUP()
+int visitloopCount = 0;
+void edgeHierarchy_t::EulerTour()
 {
+    int time=0; 
+    int root=0;
+    time = timeStampDFS(m_wtSortedMST[root].first.first, time, root);
+    m_eulerEntry[root] = time;
+    time++;
+    time = timeStampDFS(m_wtSortedMST[root].first.second, time, root);
+    m_eulerExit[root] = time;
+    time++;
+    std::cout<<"NumTime steps in euler tour ="<<time<<"\n";
+}
 
-    // first n-1, corresponds to edges, following n corresponds to vertices 
+int edgeHierarchy_t::timeStampDFS(int vtxId, int time, int bridgeEdge)
+{
+    for (int k = 0; k < m_incMatMST.numIncidentEdge(vtxId); k++)
+    {
+        auto kthEdge = m_incMatMST.k_thIncidentEdge(vtxId, k);
+        if(kthEdge==bridgeEdge)
+            continue; 
+        //other end of the edge 
+        m_eulerEntry[kthEdge] = time;
+        time++; 
+        int utx = m_wtSortedMST[kthEdge].first.first + (m_wtSortedMST[kthEdge].first.second - vtxId);
+        time = timeStampDFS(utx, time, kthEdge);
+        m_eulerExit[kthEdge] = time;
+        time++;
+    }
+    return time; 
+}
+
+std::vector<int> edgeHierarchy_t::listOfSplitEdge()
+{
+    // std::vector<int>  nChildrenProcessed(m_npts-1, 0);
+    std::vector<int> splitEdgeList;
+    // initialize outsets 
     std::vector<std::vector<int>> outSet(2*m_npts-1);
     std::vector<int>  nChildrenProcessed(m_npts-1, 0);
     std::vector<std::vector<int>>  childrenList(m_npts-1, std::vector<int>(2,-1)); 
@@ -60,16 +70,39 @@ void edgeHierarchy_t::constructEdgeTreeBottomUP()
         nChildrenProcessed[parent]++;
         // m_numDescendents[parent]++; 
     }
-
+    int nSplitEdges=0;
+    int nLeafEdges=0;
+    std::vector<int> isSplitEdge(m_npts-1,0);
+    for ( int edgeId = 0; edgeId < m_npts-1; edgeId++)
+    {
+        if(nChildrenProcessed[edgeId]==0)
+        {
+            nSplitEdges++;
+            isSplitEdge[edgeId]=1;
+        }
+            
+        if(nChildrenProcessed[edgeId]==2)
+            nLeafEdges++;
+    }
+        
+    // std::cout<<"Number of split edges ="<<nSplitEdges<<" as percentage  "<<100.0*nSplitEdges/(m_npts-1) << "\n";
+    int level=0; 
+    std::cout<<"| Level \t| #LeafEdges \t| #SplitEdges \t|" << "\n";
+    
     int edgesNotProcessed = m_npts-1;
     while(edgesNotProcessed>1)      // no need to process vertex zero
     {
+        nLeafEdges=0;
+        
         for ( int edgeId = 0; edgeId < m_npts-1; edgeId++)
         {
             /* code */
             if(!isEdgeProcessed[edgeId]  // edge is not processed
                 && nChildrenProcessed[edgeId]==2)        // both its childrens are processed
             {
+                nLeafEdges++; 
+                if(isSplitEdge[edgeId])
+                    nSplitEdges--;  
                 // std::cout<<"Processing " <<edgeId<<"\n";
                 int left = childrenList[edgeId][0];
                 int right = childrenList[edgeId][1];
@@ -97,7 +130,202 @@ void edgeHierarchy_t::constructEdgeTreeBottomUP()
                 edgesNotProcessed--;
             }
         }
+        if(level%10==0)
+        std::cout<<"|"<<level<<"\t|"<< nLeafEdges<< "\t|" << nSplitEdges <<"\t|" << "\n";
+        level++; 
+        // std::cout<<"edgesNotProcessed" << edgesNotProcessed<<"\n"; 
+        // loopCount++;
+        // if(loopCount==100) exit(0);
+        if(level==30) break;
+    }
+
+    // int nSplitEdges=0;
+    // int nLeafEdges=0;
+    // std::vector<int> isSplitEdge(m_npts-1,0);
+    for ( int edgeId = 0; edgeId < m_npts-1; edgeId++)
+    {
+        if(nChildrenProcessed[edgeId]==0)
+        {
+            // nSplitEdges++;
+            // isSplitEdge[edgeId]=1;
+            splitEdgeList.push_back(edgeId);
+        }
+    }
+
+    return splitEdgeList;
+}
+
+int edgeHierarchy_t::isLeftOfEdge(int queryEdge, int rootEdge)
+{
+    if( m_eulerEntry[queryEdge] > m_eulerEntry[rootEdge] &&
+        m_eulerExit[queryEdge] < m_eulerExit[rootEdge])
+    return 1;
+
+    return 0; 
+}
+void edgeHierarchy_t::constructEdgeTreeSplitEdges()
+{
+
+    std::vector<int> splitEdgeList = listOfSplitEdge();
+    int numSplitEdges = splitEdgeList.size();
+    
+    std::vector<int> sParent(numSplitEdges,0);
+    std::vector<int> isSpEdgeProcessed(numSplitEdges,0);
+    std::vector<int> myBranch(numSplitEdges,0);
+    std::vector<int> maxVertexMyBranch(2*numSplitEdges,numSplitEdges);
+
+    isSpEdgeProcessed[0] =1;
+    int numNotProcessed = numSplitEdges-1; 
+    int height=0;
+
+    while(numNotProcessed>0)
+    {
+        for(int sEdge=0; sEdge<numSplitEdges; sEdge++ )
+        {
+            if(!isSpEdgeProcessed[sEdge])
+            {
+                int iam = splitEdgeList[sEdge];
+                int myRoot = splitEdgeList[sParent[sEdge]];
+                myBranch[sEdge] = 2*sParent[sEdge];
+
+                if(isLeftOfEdge(iam, myRoot))
+                    myBranch[sEdge]++; 
+
+                maxVertexMyBranch[myBranch[sEdge]] = std::min(maxVertexMyBranch[myBranch[sEdge]],sEdge );
+            }
+        }
+
+        for(int sEdge=0; sEdge<numSplitEdges; sEdge++ )
+        {
+            if(!isSpEdgeProcessed[sEdge])
+            {
+                if(maxVertexMyBranch[myBranch[sEdge]] == sEdge)
+                {
+                    isSpEdgeProcessed[sEdge]=1; 
+                    numNotProcessed--;
+                    std::cout<<splitEdgeList[sEdge]<<"  \t --> \t "<< splitEdgeList[sParent[sEdge]] << "\n";
+                }
+                else 
+                {
+                    sParent[sEdge] = maxVertexMyBranch[myBranch[sEdge]];
+                }
+            }
+        }
+
+        height++; 
+    }
+    
+    std::cout<< "Height of the split edge tree is \t:"<<height << "\n";
+}
+
+void edgeHierarchy_t::constructEdgeTree()
+{
+
+    // can be done in parallel 
+    for (int edgeId = m_npts - 2; edgeId > 0; edgeId--)
+    {
         
+        auto x1 = visit(m_wtSortedMST[edgeId].first.first, edgeId);
+        auto x2 = visit(m_wtSortedMST[edgeId].first.second, edgeId);
+        m_edgeParent[edgeId] = std::max(x1, x2);
+        // Add descendents to parent
+        m_numDescendents[m_edgeParent[edgeId]] += m_numDescendents[edgeId];
+        // if I am a valid cluster
+        if (isValidCluster(edgeId))
+            m_numChildCluster[m_edgeParent[edgeId]] += 1;
+    }
+    std::cout<<"== Total visits are " <<visitloopCount<< "\n";
+}
+
+
+
+int loopCount =0; 
+void edgeHierarchy_t::constructEdgeTreeBottomUP()
+{
+
+    // first n-1, corresponds to edges, following n corresponds to vertices 
+    std::vector<std::vector<int>> outSet(2*m_npts-1);
+    std::vector<int>  nChildrenProcessed(m_npts-1, 0);
+    std::vector<std::vector<int>>  childrenList(m_npts-1, std::vector<int>(2,-1)); 
+    std::vector<int>  isEdgeProcessed(m_npts-1, 0);
+    // initialize outsets 
+
+    for(int vtxId =0; vtxId< m_npts; vtxId++)
+    {
+        int parent = m_vertexMaxIncidentEdgeId[vtxId];
+        for (int k = 0; k < m_incMatMST.numIncidentEdge(vtxId); k++)
+            if(m_incMatMST.k_thIncidentEdge(vtxId,k) != parent)
+                outSet[m_npts-1 + vtxId].push_back(m_incMatMST.k_thIncidentEdge(vtxId,k));
+        
+        
+        childrenList[parent][nChildrenProcessed[parent]] = m_npts-1 + vtxId;     
+
+        nChildrenProcessed[parent]++;
+        // m_numDescendents[parent]++; 
+    }
+    int nSplitEdges=0;
+    int nLeafEdges=0;
+    std::vector<int> isSplitEdge(m_npts-1,0);
+    for ( int edgeId = 0; edgeId < m_npts-1; edgeId++)
+    {
+        if(nChildrenProcessed[edgeId]==0)
+        {
+            nSplitEdges++;
+            isSplitEdge[edgeId]=1;
+        }
+            
+        if(nChildrenProcessed[edgeId]==2)
+            nLeafEdges++;
+    }
+        
+    // std::cout<<"Number of split edges ="<<nSplitEdges<<" as percentage  "<<100.0*nSplitEdges/(m_npts-1) << "\n";
+    int level=0; 
+    std::cout<<"| Level \t| #LeafEdges \t| #SplitEdges \t|" << "\n";
+    
+    int edgesNotProcessed = m_npts-1;
+    while(edgesNotProcessed>1)      // no need to process vertex zero
+    {
+        nLeafEdges=0;
+        
+        for ( int edgeId = 0; edgeId < m_npts-1; edgeId++)
+        {
+            /* code */
+            if(!isEdgeProcessed[edgeId]  // edge is not processed
+                && nChildrenProcessed[edgeId]==2)        // both its childrens are processed
+            {
+                nLeafEdges++; 
+                if(isSplitEdge[edgeId])
+                    nSplitEdges--;  
+                // std::cout<<"Processing " <<edgeId<<"\n";
+                int left = childrenList[edgeId][0];
+                int right = childrenList[edgeId][1];
+                // main compute step 
+                outSet[edgeId] = mergeOutSets(outSet[left], outSet[right]);
+                auto parentIt = std::max_element(outSet[edgeId].begin(), outSet[edgeId].end());
+
+                // up
+                m_edgeParent[edgeId] = *parentIt;
+                // std::cout<<"Parent is "<< m_edgeParent[edgeId]<<"\n";
+                int outsetSize = outSet[edgeId].size(); 
+                if(parentIt != outSet[edgeId].end()-1)
+                    *parentIt =outSet[edgeId][outsetSize-1]; // set to last element 
+                outSet[edgeId].resize(outsetSize-1);
+
+                int parent = m_edgeParent[edgeId];
+                childrenList[parent][nChildrenProcessed[parent]] = edgeId; 
+                nChildrenProcessed[parent]++;
+                m_numDescendents[parent] += m_numDescendents[edgeId];
+                if (isValidCluster(edgeId))
+                    m_numChildCluster[parent] += 1;
+                
+                isEdgeProcessed[edgeId] =1; 
+                // reduce index 
+                edgesNotProcessed--;
+            }
+        }
+        if(level%10==0)
+        std::cout<<"|"<<level<<"\t|"<< nLeafEdges<< "\t|" << nSplitEdges <<"\t|" << "\n";
+        level++; 
         // std::cout<<"edgesNotProcessed" << edgesNotProcessed<<"\n"; 
         // loopCount++;
         // if(loopCount==100) exit(0);
@@ -186,9 +414,9 @@ std::vector<int> edgeHierarchy_t::computeDelta()
                             if(m_numChildCluster[edgeId]==2)
                             {
                                 m_stabilityScore[parent] += m_numDescendents[edgeId] * tmpScore;
-                                std::cout<<edgeId<<"  "<<parent<<" "<< grandParent << "\n";
-                                std::cout<< m_wtSortedMST[edgeId].second<<"  "<<m_wtSortedMST[parent].second<<" "<< m_wtSortedMST[grandParent].second << "\n";
-                                std::cout<<1/m_wtSortedMST[edgeId].second<<"  "<<1/m_wtSortedMST[parent].second<<" "<< 1/m_wtSortedMST[grandParent].second << "\n";
+                                // std::cout<<edgeId<<"  "<<parent<<" "<< grandParent << "\n";
+                                // std::cout<< m_wtSortedMST[edgeId].second<<"  "<<m_wtSortedMST[parent].second<<" "<< m_wtSortedMST[grandParent].second << "\n";
+                                // std::cout<<1/m_wtSortedMST[edgeId].second<<"  "<<1/m_wtSortedMST[parent].second<<" "<< 1/m_wtSortedMST[grandParent].second << "\n";
                             }
                                 
                             else 
@@ -218,10 +446,11 @@ std::vector<int> edgeHierarchy_t::computeDelta()
             // assert(descloopCount[edgeId]==m_numDescendents[edgeId]);
             
             // m_stabilityScore[edgeId] -= m_numDescendents[edgeId] / m_wtSortedMST[parent].second;
-            std::cout << edgeId << " \t : stability score =" << m_stabilityScore[edgeId] <<
-            "\t sHat ="<<sHatScore[edgeId] << "\n";
-            std::cout<<"loopCOunted desc "<<descloopCount[edgeId]<< " atcual descendent " << m_numDescendents[edgeId]<<"\n";
-            if(sHatScore[edgeId]> m_stabilityScore[edgeId])
+            // std::cout << edgeId << " \t : stability score =" << m_stabilityScore[edgeId] <<
+            // "\t sHat ="<<sHatScore[edgeId] << "\n";
+            // std::cout<<"loopCOunted desc "<<descloopCount[edgeId]<< " atcual descendent " << m_numDescendents[edgeId]<<"\n";
+            //TODO: check if this is correct 
+            if(sHatScore[edgeId]>= m_stabilityScore[edgeId])
             {
                 delta[edgeId] =0;
             }
@@ -229,7 +458,9 @@ std::vector<int> edgeHierarchy_t::computeDelta()
             {
                 sHatScore[edgeId]= m_stabilityScore[edgeId];
             }
-            std::cout<<"sHat =  "<<sHatScore[edgeId]<<" "<<delta[edgeId]<< "\n";
+            // if(delta[edgeId])
+            //     std::cout<<"sHat["<<edgeId <<"] =  "<<sHatScore[edgeId]<< "\n";
+            // std::cout<<"sHat["<<edgeId <<"] =  "<<sHatScore[edgeId]<<" "<<delta[edgeId]<< "\n";
             parent = m_edgeParent[parent];
             while(parent >-1)
             {
@@ -262,9 +493,21 @@ m_wtSortedMST(wtSortedMST), m_incMatMST(wtSortedMST), m_minClusterSize(minCluste
     m_flatClusterMap.resize(m_npts,-1);
     m_lastVisitVertexValue.resize(m_npts,m_npts);
 
+    m_eulerEntry.resize(m_npts-1, 0);
+    m_eulerExit.resize(m_npts-1, 0);
+
     auto sHatScore =m_stabilityScore;
     // std::vector<int> delta(m_npts - 1, 1);   
     // .resize(m_npts,-1);
+
+    /* Perform an euler Tour */ 
+    EulerTour();
+    constructEdgeTreeSplitEdges();
+    exit(0);
+    // for(int edgeId=0; edgeId<m_npts-1;edgeId++)
+    // {
+    //     std::cout<<" \t | "<<edgeId<<" \t | "<< m_eulerEntry[edgeId] <<" \t | "<< m_eulerExit[edgeId]<<" \t | " << "\n";
+    // }
 
     // add num descendents to leaf nodes
     for (int vtx = 0; vtx < m_npts; vtx++)

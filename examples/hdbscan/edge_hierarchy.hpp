@@ -22,6 +22,14 @@ class edgeHierarchy_t
     std::vector<float> m_stabilityScore;
     std::vector<int>  m_parentCluster;
     std::vector<int>  m_flatClusterMap;
+
+    // related to eulerTour
+    std::vector<int> m_eulerEntry;
+    std::vector<int> m_eulerExit;
+    int timeStampDFS(int vertexId, int startTime, int bridgeEdge);
+    void constructEdgeTreeSplitEdges();
+    std::vector<int> listOfSplitEdge();
+    int isLeftOfEdge(int queryEdge, int rootEdge);
     
     int m_minClusterSize=3;
     bool isValidCluster(int edgeIdx)
@@ -43,6 +51,9 @@ class edgeHierarchy_t
 
     void constructEdgeTree();
     void constructEdgeTreeBottomUP();
+    // constructing the euler tour 
+    void EulerTour();
+
     std::vector<int>  constructFlatMap(std::vector<int>& delta);
     std::vector<int> computeDelta();
 
