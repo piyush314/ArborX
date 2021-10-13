@@ -21,12 +21,12 @@ std::vector<wtEdge_t> readMST(std::ifstream& inFile)
         inFile>>ddest;
         inFile>>wt;
         if(inFile.eof()) break; 
-        std::cout<<dsrc<< " "<<ddest<<" " <<wt << "\n";
+        // std::cout<<dsrc<< " "<<ddest<<" " <<wt << "\n";
         out.push_back( std::make_pair(std::make_pair((int)dsrc, (int)ddest), wt) ); 
         count++;
     }
         
-        std::cout<<"Read "<<count << " entries \n";
+        std::cout<<"Read MST with \t: "<<count << " edges.\n";
         
     return out; 
 }
