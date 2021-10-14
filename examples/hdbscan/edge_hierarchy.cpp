@@ -2,6 +2,7 @@
 #include <iostream>
 #include <cassert> 
 #include <sstream>
+#include <cstdio> 
 #include "edge_hierarchy.hpp"
 #include "incidence_matrix.hpp"
 std::vector<int> mergeOutSets(std::vector<int>&A, std::vector<int>&B)
@@ -360,6 +361,7 @@ std::vector<int>  edgeHierarchy_t::constructFlatMap(std::vector<int>& delta)
     return flatClusterMap;
 }
 
+#if 0
 
 std::vector<int> edgeHierarchy_t::computeDelta()
 {
@@ -384,8 +386,6 @@ std::vector<int> edgeHierarchy_t::computeDelta()
         }
     }
 
-    std::vector<int> descloopCount(m_npts,0); 
-
     // calculate stability
     
     for (int edgeId = m_npts - 2; edgeId > 0; edgeId--)
@@ -399,37 +399,18 @@ std::vector<int> edgeHierarchy_t::computeDelta()
                 if (isTrueCluster(parent))
                 {
                     
-                    if(0)
+                    int grandParent = m_edgeParent[parent];
+                    if(grandParent!=-1)
                     {
-                        int grandParent = m_edgeParent[parent];
-                        m_stabilityScore[parent] += m_numDescendents[edgeId] *
-                        ( 1.0/ m_wtSortedMST[edgeId].second - 1.0/ m_wtSortedMST[grandParent].second);
-                    }
-                    else
-                    {
-                        int grandParent = m_edgeParent[parent];
-                        if(grandParent!=-1)
+                        double tmpScore =( 1.0/ m_wtSortedMST[edgeId].second - 1.0/ m_wtSortedMST[grandParent].second);
+                        if(m_numChildCluster[edgeId]==2)
                         {
-                            double tmpScore =( 1.0/ m_wtSortedMST[edgeId].second - 1.0/ m_wtSortedMST[grandParent].second);
-                            if(m_numChildCluster[edgeId]==2)
-                            {
-                                m_stabilityScore[parent] += m_numDescendents[edgeId] * tmpScore;
-                                // std::cout<<edgeId<<"  "<<parent<<" "<< grandParent << "\n";
-                                // std::cout<< m_wtSortedMST[edgeId].second<<"  "<<m_wtSortedMST[parent].second<<" "<< m_wtSortedMST[grandParent].second << "\n";
-                                // std::cout<<1/m_wtSortedMST[edgeId].second<<"  "<<1/m_wtSortedMST[parent].second<<" "<< 1/m_wtSortedMST[grandParent].second << "\n";
-                            }
-                                
-                            else 
-                                m_stabilityScore[parent] += clDescends[edgeId] *tmpScore;
-
-                            if(m_numChildCluster[edgeId]==2)
-                                descloopCount[parent] += m_numDescendents[edgeId] ;
-                            else 
-                                descloopCount[parent] += clDescends[edgeId];
+                            m_stabilityScore[parent] += m_numDescendents[edgeId] * tmpScore;
                         }
-                        
+                        else 
+                            m_stabilityScore[parent] += clDescends[edgeId] *tmpScore;
+
                     }
-                        
                     break;
                 }
                 else
@@ -443,13 +424,7 @@ std::vector<int> edgeHierarchy_t::computeDelta()
         if (isTrueCluster(edgeId) && edgeId != 0)
         {
             
-            // assert(descloopCount[edgeId]==m_numDescendents[edgeId]);
             
-            // m_stabilityScore[edgeId] -= m_numDescendents[edgeId] / m_wtSortedMST[parent].second;
-            // std::cout << edgeId << " \t : stability score =" << m_stabilityScore[edgeId] <<
-            // "\t sHat ="<<sHatScore[edgeId] << "\n";
-            // std::cout<<"loopCOunted desc "<<descloopCount[edgeId]<< " atcual descendent " << m_numDescendents[edgeId]<<"\n";
-            //TODO: check if this is correct 
             if(sHatScore[edgeId]>= m_stabilityScore[edgeId])
             {
                 delta[edgeId] =0;
@@ -460,7 +435,7 @@ std::vector<int> edgeHierarchy_t::computeDelta()
             }
             // if(delta[edgeId])
             //     std::cout<<"sHat["<<edgeId <<"] =  "<<sHatScore[edgeId]<< "\n";
-            // std::cout<<"sHat["<<edgeId <<"] =  "<<sHatScore[edgeId]<<" "<<delta[edgeId]<< "\n";
+            std::cout<<"sHat["<<edgeId <<"] =  "<<sHatScore[edgeId]<<" "<<delta[edgeId]<< "\n";
             parent = m_edgeParent[parent];
             while(parent >-1)
             {
@@ -478,6 +453,123 @@ std::vector<int> edgeHierarchy_t::computeDelta()
 
     return delta; 
 }
+
+#else 
+std::vector<int> edgeHierarchy_t::computeDelta()
+{
+    auto sHatScore =m_stabilityScore;
+    std::vector<int> delta(m_npts - 1, 1);   
+
+    
+    // Leaf cluster stabilty caclulation
+    for (int vtx = 0; vtx < m_npts; vtx++)
+    {
+        int parent = m_vertexMaxIncidentEdgeId[vtx];
+        if (parent > -1 && isValidCluster(parent) )
+        {
+            m_stabilityScore[parent] += 1.0/ m_wtSortedMST[parent].second; 
+            // std::cout<<"0. s["<<parent<<"] \t+= 1.0/"<<m_wtSortedMST[parent].second
+            // <<" \t="<<1.0/ m_wtSortedMST[parent].second<<" \t="<<m_stabilityScore[parent]
+            //  << "\n";
+        }
+            
+    }
+
+    // calculate stability
+    
+    for (int edgeId = m_npts - 2; edgeId > 0; edgeId--)
+    {
+        int parent = m_edgeParent[edgeId];
+        if (!isValidCluster(edgeId) and parent >-1 and  isValidCluster(parent))
+        {
+            m_stabilityScore[parent] += m_numDescendents[edgeId]*1.0/ m_wtSortedMST[parent].second;
+            // std::cout<<"1. s["<<parent<<"] \t+=" << m_numDescendents[edgeId] <<".0/"<<m_wtSortedMST[parent].second
+            // <<" \t="<<m_numDescendents[edgeId]*1.0/ m_wtSortedMST[parent].second<<" \t="<<m_stabilityScore[parent]
+            //  << "\n";
+        }
+        if (isValidCluster(edgeId))
+        {
+            // leaf valid cluster 
+            if(m_numChildCluster[edgeId]==0)
+            {
+                if (isTrueCluster(edgeId))
+                {
+                    m_stabilityScore[edgeId] = m_numDescendents[edgeId]*
+                    (1.0/ m_wtSortedMST[edgeId].second -  1.0/ m_wtSortedMST[parent].second);
+                    // printf("2. s[%d] \t= %d x (1/%f - 1/%f) \t= %f\n", edgeId,m_numDescendents[edgeId],
+                    // m_wtSortedMST[edgeId].second, m_wtSortedMST[parent].second, m_stabilityScore[edgeId] );
+                }
+                m_stabilityScore[parent] += m_numDescendents[edgeId]*1.0/ m_wtSortedMST[parent].second;
+                // printf("a. s[%d] \t+= %d x (1/%f ) \t= %f\n", parent,m_numDescendents[edgeId],
+                //      m_wtSortedMST[parent].second, m_stabilityScore[parent] );
+            }
+
+            if(m_numChildCluster[edgeId]==1)
+            {
+                if (isTrueCluster(edgeId))
+                {
+                    m_stabilityScore[edgeId] -= m_numDescendents[edgeId]*
+                    ( 1.0/ m_wtSortedMST[parent].second);
+                    // printf("3. s[%d] \t-= %d x (1/%f ) \t= %f\n", edgeId,m_numDescendents[edgeId],
+                    // m_wtSortedMST[parent].second, m_stabilityScore[edgeId] );
+                    
+                }
+                m_stabilityScore[parent] += m_stabilityScore[edgeId];
+                // printf("b. s[%d] \t+= s[%d] \t= %f\n", parent, edgeId,
+                //       m_stabilityScore[parent] );
+            }
+            
+            if(m_numChildCluster[edgeId]==2)
+            {
+                if (isTrueCluster(edgeId))
+                {
+                    m_stabilityScore[edgeId] = m_numDescendents[edgeId]*
+                    (1.0/ m_wtSortedMST[edgeId].second -  1.0/ m_wtSortedMST[parent].second);
+                    // printf("4. s[%d] \t= %d x (1/%f - 1/%f) \t= %f\n", edgeId,m_numDescendents[edgeId],
+                    // m_wtSortedMST[edgeId].second, m_wtSortedMST[parent].second, m_stabilityScore[edgeId] );
+                }
+                m_stabilityScore[parent] += m_numDescendents[edgeId]*1.0/ m_wtSortedMST[parent].second;
+                // printf("c. s[%d] \t+= %d x (1/%f ) \t= %f\n", parent,m_numDescendents[edgeId],
+                //      m_wtSortedMST[parent].second, m_stabilityScore[parent] );
+            }
+        }
+
+
+
+        
+        if (isTrueCluster(edgeId) && edgeId != 0)
+        {
+            
+            
+            if(sHatScore[edgeId]>= m_stabilityScore[edgeId])
+            {
+                delta[edgeId] =0;
+            }
+            else
+            {
+                sHatScore[edgeId]= m_stabilityScore[edgeId];
+            }
+            // if(delta[edgeId])
+            //     std::cout<<"sHat["<<edgeId <<"] =  "<<sHatScore[edgeId]<< "\n";
+            std::cout<<"sHat["<<edgeId <<"] =  "<<sHatScore[edgeId]<<" "<<delta[edgeId]<< "\n";
+            parent = m_edgeParent[parent];
+            while(parent >-1)
+            {
+                if(isTrueCluster(parent))
+                {
+                    sHatScore[parent] += sHatScore[edgeId];
+                    break;         
+                }
+                else
+                    parent = m_edgeParent[parent];
+            }
+            
+        }
+    }
+
+    return delta; 
+}
+#endif
 
 edgeHierarchy_t::edgeHierarchy_t(std::vector<wtEdge_t> &wtSortedMST, int minClusterSize) : 
 m_wtSortedMST(wtSortedMST), m_incMatMST(wtSortedMST), m_minClusterSize(minClusterSize)
@@ -501,6 +593,7 @@ m_wtSortedMST(wtSortedMST), m_incMatMST(wtSortedMST), m_minClusterSize(minCluste
     // .resize(m_npts,-1);
 
     /* Perform an euler Tour */ 
+    #ifdef SPLIT_EDGE_TREE 
     EulerTour();
     constructEdgeTreeSplitEdges();
     exit(0);
@@ -508,7 +601,7 @@ m_wtSortedMST(wtSortedMST), m_incMatMST(wtSortedMST), m_minClusterSize(minCluste
     // {
     //     std::cout<<" \t | "<<edgeId<<" \t | "<< m_eulerEntry[edgeId] <<" \t | "<< m_eulerExit[edgeId]<<" \t | " << "\n";
     // }
-
+    #else 
     // add num descendents to leaf nodes
     for (int vtx = 0; vtx < m_npts; vtx++)
     {
@@ -518,7 +611,7 @@ m_wtSortedMST(wtSortedMST), m_incMatMST(wtSortedMST), m_minClusterSize(minCluste
     }
 
     constructEdgeTreeBottomUP();
-
+    #endif 
     auto delta = computeDelta();
     m_flatClusterMap = constructFlatMap(delta);
     
