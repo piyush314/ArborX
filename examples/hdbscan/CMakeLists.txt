@@ -1,6 +1,7 @@
 add_executable(ArborX_HDBSCAN.exe
   parallel_boruvka.cpp
   edge_hierarchy.cpp
+  computeDelta.cpp 
   incidence_matrix.cpp 
   main.cpp
 )
@@ -13,6 +14,7 @@ set_target_properties(ArborX_HDBSCAN.exe PROPERTIES
 add_executable(ArborX_mst2cluster.exe
   parallel_boruvka.cpp
   edge_hierarchy.cpp
+  computeDelta.cpp 
   incidence_matrix.cpp 
   mst2cluster.cpp
 )

@@ -214,6 +214,7 @@ void parallelBoruvka_t::writeMST(std::ofstream &outfile)
     for (auto edge : stWtMST)
     {
         outfile << edge.first.first << " " << edge.first.second << "\n";
+        // outfile << edge.first.first << " " << edge.first.second <<  " " << edge.second <<"\n";
     }
 }
 
