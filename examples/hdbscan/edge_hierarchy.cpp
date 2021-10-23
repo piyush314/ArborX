@@ -168,6 +168,7 @@ m_wtSortedMST(wtSortedMST), m_incMatMST(wtSortedMST), m_minClusterSize(minCluste
     alphaTree_t alphaTree(m_incMatMST, m_wtSortedMST);
     // TODO: get the edge Tree 
     
+    m_edgeParent = alphaTree.constructEdgeTree();
     exit(0);
     // for(int edgeId=0; edgeId<m_npts-1;edgeId++)
     // {
