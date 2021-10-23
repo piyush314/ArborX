@@ -136,9 +136,10 @@ std::vector<int> alphaTree_t::constructAlphaTree()
     int numNotProcessed = numSplitEdges-1; 
     int height=0;
 
+    parent[0] =-1;
     while(numNotProcessed>0)
     {
-        for(int edge=0; edge<numSplitEdges; edge++ )
+        for(int edge=1; edge<numSplitEdges; edge++ )
         {
             if(!isProcessed[edge])
             {
@@ -194,22 +195,24 @@ std::vector<int> alphaTree_t::constructEdgeTree()
     // for each edge find its branch 
     
     for(int edgeId =0; edgeId< m_npts-1; edgeId++) 
+    // for(int edgeId =0; edgeId< 10; edgeId++) 
     {
         int alParent = findAlphaParent(edgeId );
-        printf(" alphaParent(%d)  :\t %d \n", edgeId, alParent);
+        if(alParent!=-1)
+        printf(" alphaParent(%d)  :\t %d (%d) \n", edgeId, alphaEdges[alParent], alParent);
         //TODO: -1 case 
         if(alParent==-1)
             branchEdge[edgeId] = branchEdge_t(-1, edgeId);     
         else 
         {
-            int mstParent = alphaParents[alParent];
-
+            // int mstParent = alphaParents[alParent];
+            int mstParent = alphaEdges[alParent];
             int myBranch = 2*alParent; 
             myBranch += isLeftOfEdge(edgeId, mstParent);
             branchEdge[edgeId] = branchEdge_t(myBranch, edgeId); 
         }
     }
-
+    // exit(0);
     // TODO: branchEdgeComparator 
     std::sort(branchEdge.begin(),branchEdge.end(), branchEdgeComparator());
 
@@ -240,7 +243,7 @@ std::vector<int> alphaTree_t::computeBrideEdges()
     for(int alphaId =0; alphaId <numAlphaEdges; alphaId++ )
     {
         int myEntry = alphaEulerEntry[alphaId];
-        int myExit = alphaEulerEntry[alphaId];
+        int myExit = alphaEulerExit[alphaId];
 
         int timeStamp = myEntry+1;
 
@@ -267,25 +270,45 @@ int alphaTree_t::findAlphaParent(int edgeId)
     int myExit  = std::distance(idxTS.begin(), 
                         std::lower_bound(idxTS.begin(), idxTS.end(), idxExit));
 
+    
     // quick return
     if(edgeId == alphaEdges[idxTS[myEntry].second/2]  )
     {
         return alphaParents[idxTS[myEntry].second/2];
     }
 
+    printf("%d :\t mstEntry %d mstExit %d newEntry %d newExit %d: \
+    \n \t\t%d  %d %d %d\n",
+    edgeId, mstEulerEntry[edgeId], mstEulerExit[edgeId],
+         myEntry, myExit
+         , alphaEdges[idxTS[myEntry].second/2]
+         , idxTS[myEntry].second
+         , alphaEdges[idxTS[myEntry-1].second/2]
+         , alphaBridgeEdges[idxTS[myEntry-1].second/2]   );
+
     int myBridge; 
 
+
+#if 0
     if(myEntry==0)
         myBridge =-1;
     else if(idxTS[myEntry-1].second %2 ==0 ) //starting point
         myBridge = idxTS[myEntry-1].second/2;
     else 
         myBridge = alphaBridgeEdges[idxTS[myEntry-1].second/2];
-    
-    // int minDescendent= m_npts;
-    int minDescendent= -1;
+#else 
+    if(myEntry==0)
+        myBridge =-1;
+    else if(idxTS[myEntry].second %2 ==0 ) //starting point
+        myBridge = alphaBridgeEdges[idxTS[myEntry].second/2];
+    else 
+        myBridge = idxTS[myEntry].second/2;
+#endif 
+    int minDescendent= m_npts;
+    // int minDescendent= -1;
     int minDescIdx=-1;
-    int maxAncestor = m_npts;
+    // int maxAncestor = m_npts;
+    int maxAncestor = -1;
     int maxAncIdx=-1;
 
     int startTime, endTime, minDesc;
@@ -302,14 +325,14 @@ int alphaTree_t::findAlphaParent(int edgeId)
 
         int bridgeId = alphaEdges[myBridge];
         if(bridgeId  >edgeId and 
-            minDescendent< bridgeId)
+            bridgeId<minDescendent )
         {   
             minDescendent =     bridgeId;
             minDescIdx = myBridge; 
         }
 
         if(bridgeId<edgeId and 
-            maxAncestor> bridgeId)
+            bridgeId>maxAncestor)
         {   
             maxAncestor =     bridgeId;
             maxAncIdx = myBridge; 
@@ -322,21 +345,22 @@ int alphaTree_t::findAlphaParent(int edgeId)
     
     
     int ts= startTime;
-    printf("%d :\t bridge %d startTime %d endTime %d  ", edgeId, myBridge,
-         startTime, endTime);
+    printf("%d :\t bridge %d startTime %d endTime %d max %d min %d\n ", edgeId, myBridge,
+         startTime, endTime, maxAncestor, minDescendent);
     while(ts<endTime)
     {
         int neighbourIdx= idxTS[ts].second/2;
         int neighbourEdgeId = alphaEdges[neighbourIdx];
+        printf("%d : \t checking %d\n", edgeId, neighbourEdgeId);
         if(neighbourEdgeId>edgeId and 
-            minDescendent< neighbourEdgeId)
+            neighbourEdgeId<minDescendent)
         {   
             minDescendent =     neighbourEdgeId;
             minDescIdx = neighbourIdx; 
         }
 
         if(neighbourEdgeId<edgeId and 
-            maxAncestor> neighbourEdgeId)
+            neighbourEdgeId>maxAncestor )
         {   
             maxAncestor =     neighbourEdgeId;
             maxAncIdx = neighbourIdx; 
@@ -345,7 +369,7 @@ int alphaTree_t::findAlphaParent(int edgeId)
         ts = alphaEulerExit[neighbourIdx]+1; 
     }
 
-    printf(":\t min %d max %d \n ", minDescIdx, maxAncIdx);
+    printf(":\t min %d max %d \n ", minDescendent, maxAncestor);
 
     if(minDescIdx==-1) // leaf node
         return maxAncIdx;
