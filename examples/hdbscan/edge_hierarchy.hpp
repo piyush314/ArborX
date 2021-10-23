@@ -3,6 +3,8 @@
 #include "parallel_boruvka.hpp"
 #include "incidence_matrix.hpp"
 
+std::vector<int> mergeOutSets(std::vector<int>&A, std::vector<int>&B);
+
 class edgeHierarchy_t
 {
     public:
@@ -28,7 +30,10 @@ class edgeHierarchy_t
     std::vector<int> m_eulerExit;
     int timeStampDFS(int vertexId, int startTime, int bridgeEdge);
     void constructEdgeTreeSplitEdges();
+    std::vector<int> constructAlphaTree(std::vector<int> &alphaEdges);
+    void alpha2EdgeTree(std::vector<int>& alphaEdges, std::vector<int>& alphaParent);
     std::vector<int> listOfSplitEdge();
+    std::vector<int> listOfSplitEdge(int maxLevel);
     int isLeftOfEdge(int queryEdge, int rootEdge);
     
     int m_minClusterSize=3;

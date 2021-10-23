@@ -3,6 +3,8 @@ add_executable(ArborX_HDBSCAN.exe
   edge_hierarchy.cpp
   computeDelta.cpp 
   incidence_matrix.cpp 
+  eulerTour.cpp
+  alphaTree.cpp
   main.cpp
 )
 
@@ -15,6 +17,8 @@ add_executable(ArborX_mst2cluster.exe
   parallel_boruvka.cpp
   edge_hierarchy.cpp
   computeDelta.cpp 
+  eulerTour.cpp
+  alphaTree.cpp
   incidence_matrix.cpp 
   mst2cluster.cpp
 )

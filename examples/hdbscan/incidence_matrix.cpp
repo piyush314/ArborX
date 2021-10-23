@@ -44,6 +44,7 @@ int incidenceMatrix_t::k_thIncidentEdge(int vertexId, int k)
     return m_edgeIdx[m_vEdgeListIndex[vertexId] + k];
 }
 
+// TODO: can be made a function and array can be part of class
 std::vector<int> incidenceMatrix_t::maxIncidentEdgeId()
 {
     std::vector<int> out(m_npts, -1);
@@ -52,4 +53,11 @@ std::vector<int> incidenceMatrix_t::maxIncidentEdgeId()
         out[vtx] = *std::max_element(&m_edgeIdx[m_vEdgeListIndex[vtx]],&m_edgeIdx[m_vEdgeListIndex[vtx+1]]);
     }
     return out; 
+}
+
+
+int incidenceMatrix_t::maxIncidentEdgeId(int vtx)
+{
+    return  *std::max_element(&m_edgeIdx[m_vEdgeListIndex[vtx]],
+            &m_edgeIdx[m_vEdgeListIndex[vtx+1]]);
 }
