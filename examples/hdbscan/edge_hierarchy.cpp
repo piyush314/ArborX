@@ -6,6 +6,7 @@
 #include "edge_hierarchy.hpp"
 #include "incidence_matrix.hpp"
 #include "alphaTree.hpp"
+#include "timer.hpp"
 
 std::vector<int> mergeOutSets(std::vector<int>&A, std::vector<int>&B)
 {
@@ -45,7 +46,7 @@ void edgeHierarchy_t::constructEdgeTree()
 int loopCount =0; 
 void edgeHierarchy_t::constructEdgeTreeBottomUP()
 {
-
+    int printEnabled=0;
     // first n-1, corresponds to edges, following n corresponds to vertices 
     std::vector<std::vector<int>> outSet(2*m_npts-1);
     std::vector<int>  nChildrenProcessed(m_npts-1, 0);
@@ -83,6 +84,7 @@ void edgeHierarchy_t::constructEdgeTreeBottomUP()
         
     // std::cout<<"Number of split edges ="<<nSplitEdges<<" as percentage  "<<100.0*nSplitEdges/(m_npts-1) << "\n";
     int level=0; 
+    if(printEnabled)
     std::cout<<"| Level \t| #LeafEdges \t| #SplitEdges \t|" << "\n";
     
     int edgesNotProcessed = m_npts-1;
@@ -126,7 +128,7 @@ void edgeHierarchy_t::constructEdgeTreeBottomUP()
                 edgesNotProcessed--;
             }
         }
-        if(level%10==0)
+        if(level%10==0 and printEnabled)
         std::cout<<"|"<<level<<"\t|"<< nLeafEdges<< "\t|" << nSplitEdges <<"\t|" << "\n";
         level++; 
         // std::cout<<"edgesNotProcessed" << edgesNotProcessed<<"\n"; 
@@ -168,12 +170,33 @@ m_wtSortedMST(wtSortedMST), m_incMatMST(wtSortedMST), m_minClusterSize(minCluste
     alphaTree_t alphaTree(m_incMatMST, m_wtSortedMST);
     // TODO: get the edge Tree 
     
-    m_edgeParent = alphaTree.constructEdgeTree();
+    timer_t tDgramFromAtree(std::string("AlphaTree E-hierarchy construction"));
+
+    tDgramFromAtree.start();
+    std::vector<int> alphaTreeEdgeParent = alphaTree.constructEdgeTree();
+    tDgramFromAtree.end();
+    // do a bottomup for testing 
+    for (int vtx = 0; vtx < m_npts; vtx++)
+    {
+        int parent = m_vertexMaxIncidentEdgeId[vtx];
+        m_numDescendents[parent]++;
+        m_lastVisitVertexValue[vtx] = parent; 
+    }
+
+    timer_t tDgramBottomUp(std::string("Bottom-up E-hierarchy construction"));
+
+    tDgramBottomUp.start();
+    constructEdgeTreeBottomUP();
+    tDgramBottomUp.end();
+    for(int i=0; i< m_npts-1; i++)
+    {
+        assert(alphaTreeEdgeParent[i] == m_edgeParent[i]);
+    }
+    std::cout<<"Testing successful" << "\n";
+    tDgramBottomUp.print();
+    tDgramFromAtree.print();
     exit(0);
-    // for(int edgeId=0; edgeId<m_npts-1;edgeId++)
-    // {
-    //     std::cout<<" \t | "<<edgeId<<" \t | "<< m_eulerEntry[edgeId] <<" \t | "<< m_eulerExit[edgeId]<<" \t | " << "\n";
-    // }
+    
     #else 
     // add num descendents to leaf nodes
     for (int vtx = 0; vtx < m_npts; vtx++)
