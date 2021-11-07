@@ -30,6 +30,8 @@ public:
     incidenceMatrix_t& m_incMatMST;
     std::vector<wtEdge_t>& m_wtSortedMST;
 
+    
+
     void alpha2EdgeTree();
     int isLeftOfEdge(int queryEdge, int rootEdge);
     alphaTree_t(incidenceMatrix_t& _incMatMST, std::vector<wtEdge_t>& _wtSortedMST);
@@ -43,6 +45,9 @@ public:
     std::vector<int> constructAlphaTree();
     std::vector<int> constructEdgeTree();
     int findAlphaParent(int edgeId);
+
+    std::vector<int> computeFlatClustering();
+    std::vector<branchEdge_t> computeBranchEdge();
     
 }; 
 

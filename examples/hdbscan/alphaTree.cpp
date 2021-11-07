@@ -6,6 +6,9 @@
 #include "edge_hierarchy.hpp"
 #include "incidence_matrix.hpp"
 #include "alphaTree.hpp"
+#include "timer.hpp"
+
+int printEnabled =0;
 
 std::vector<int> alphaTree_t::getAlphaEdges()
 {
@@ -20,13 +23,6 @@ std::vector<int> alphaTree_t::getAlphaEdges()
     for(int vtxId =0; vtxId< m_npts; vtxId++)
     {
         int parent = m_incMatMST.maxIncidentEdgeId(vtxId); 
-        for (int k = 0; k < m_incMatMST.numIncidentEdge(vtxId); k++)
-            if(m_incMatMST.k_thIncidentEdge(vtxId,k) != parent)
-                outSet[m_npts-1 + vtxId].push_back(m_incMatMST.k_thIncidentEdge(vtxId,k));
-        
-        
-        childrenList[parent][nChildrenProcessed[parent]] = m_npts-1 + vtxId;     
-
         nChildrenProcessed[parent]++;
         // m_numDescendents[parent]++; 
     }
@@ -100,11 +96,21 @@ alphaTree_t::alphaTree_t(incidenceMatrix_t& _incMatMST, std::vector<wtEdge_t>& _
     
     // perform the eulerTour on Alpha-MST
     // sets idxTS, alphaEulerEntry and alphaEulerExit
+    timer_t tAlphaEulerTour(std::string("Alpha-euler tour"));
+    timer_t tAlphaTree(std::string("Alpha-tree construction"));
+
+    tAlphaEulerTour.start();
     alphaEulerTour(); 
+    tAlphaEulerTour.end();
     // compute bridgeEdge
     alphaBridgeEdges= computeBrideEdges();
     // construct Alpha tree 
+    tAlphaTree.start(); 
     alphaParents = constructAlphaTree();
+    tAlphaTree.end();
+
+    tAlphaEulerTour.print();
+    tAlphaTree.print();
 
 }
 
@@ -120,7 +126,7 @@ int alphaTree_t::isLeftOfEdge(int queryEdge, int rootEdge)
 }
 
 
-// void edgeHierarchy_t::constructEdgeTreeSplitEdges()
+
 std::vector<int> alphaTree_t::constructAlphaTree()
 {
 
@@ -187,18 +193,24 @@ std::vector<int> alphaTree_t::constructAlphaTree()
     return parent; 
 }
 
-// void alphaTree_t::alpha2EdgeTree(std::vector<int>& alphaEdges, std::vector<int>& alphaParent)
+
 std::vector<int> alphaTree_t::constructEdgeTree()
 {
+    int printEnabled=0;
     //Assumption no edges have been processed
+    #if 1
+    std::vector<branchEdge_t> branchEdge = computeBranchEdge();
+    #else 
+
     std::vector<branchEdge_t> branchEdge(m_npts-1);
     // for each edge find its branch 
-    
+    timer_t tFindAlphaParent("Finding alpha parents");
+    tFindAlphaParent.start();
     for(int edgeId =0; edgeId< m_npts-1; edgeId++) 
     // for(int edgeId =0; edgeId< 10; edgeId++) 
     {
         int alParent = findAlphaParent(edgeId );
-        if(alParent!=-1)
+        if(alParent!=-1 and printEnabled)
         printf(" alphaParent(%d)  :\t %d (%d) \n", edgeId, alphaEdges[alParent], alParent);
         //TODO: -1 case 
         if(alParent==-1)
@@ -212,12 +224,20 @@ std::vector<int> alphaTree_t::constructEdgeTree()
             branchEdge[edgeId] = branchEdge_t(myBranch, edgeId); 
         }
     }
+    tFindAlphaParent.end();
+    tFindAlphaParent.print();
     // exit(0);
     // TODO: branchEdgeComparator 
+    timer_t tSortBranchEdge("Branch Edge-sorting");
+    tSortBranchEdge.start();
     std::sort(branchEdge.begin(),branchEdge.end(), branchEdgeComparator());
-
+    tSortBranchEdge.end();
+    tSortBranchEdge.print();
+    #endif 
     // mark the parents 
     std::vector<int> globalParents(m_npts-1,-1);
+    timer_t tMarkingParents("Marking Parents");
+    tMarkingParents.start();
     for(int edgeId =1; edgeId< m_npts-1; edgeId++) 
     {
         // we are on same branch
@@ -225,14 +245,19 @@ std::vector<int> alphaTree_t::constructEdgeTree()
         {
             globalParents[branchEdge[edgeId].edgeIdx] = 
             branchEdge[edgeId-1].edgeIdx;
+            if(printEnabled)
             printf(" %d -> %d \n",branchEdge[edgeId].edgeIdx,branchEdge[edgeId-1].edgeIdx);
         }
         else // Iam start of the branch
         {
             globalParents[branchEdge[edgeId].edgeIdx] = alphaEdges[branchEdge[edgeId].branch/2];
+            if(printEnabled)
             printf(" %d -> %d \n",branchEdge[edgeId].edgeIdx,globalParents[branchEdge[edgeId].edgeIdx]);
         }
     }
+    tMarkingParents.end();
+    tMarkingParents.print();
+
     return globalParents;
 }
 
@@ -263,6 +288,8 @@ std::vector<int> alphaTree_t::computeBrideEdges()
 
 int alphaTree_t::findAlphaParent(int edgeId)
 {
+    
+    if(edgeId <alphaEdges[0]) return -1;
     indexedTimeStamp_t idxEntry(mstEulerEntry[edgeId], 0); 
     indexedTimeStamp_t idxExit(mstEulerExit[edgeId], 0);
     int myEntry = std::distance(idxTS.begin(), 
@@ -276,15 +303,15 @@ int alphaTree_t::findAlphaParent(int edgeId)
     {
         return alphaParents[idxTS[myEntry].second/2];
     }
-
+    
+    if(printEnabled)
     printf("%d :\t mstEntry %d mstExit %d newEntry %d newExit %d: \
-    \n \t\t%d  %d %d %d\n",
+    \n \t\t%d  %d\n",
     edgeId, mstEulerEntry[edgeId], mstEulerExit[edgeId],
          myEntry, myExit
          , alphaEdges[idxTS[myEntry].second/2]
          , idxTS[myEntry].second
-         , alphaEdges[idxTS[myEntry-1].second/2]
-         , alphaBridgeEdges[idxTS[myEntry-1].second/2]   );
+           );
 
     int myBridge; 
 
@@ -305,9 +332,7 @@ int alphaTree_t::findAlphaParent(int edgeId)
         myBridge = idxTS[myEntry].second/2;
 #endif 
     int minDescendent= m_npts;
-    // int minDescendent= -1;
     int minDescIdx=-1;
-    // int maxAncestor = m_npts;
     int maxAncestor = -1;
     int maxAncIdx=-1;
 
@@ -345,12 +370,14 @@ int alphaTree_t::findAlphaParent(int edgeId)
     
     
     int ts= startTime;
+    if(printEnabled)
     printf("%d :\t bridge %d startTime %d endTime %d max %d min %d\n ", edgeId, myBridge,
          startTime, endTime, maxAncestor, minDescendent);
     while(ts<endTime)
     {
         int neighbourIdx= idxTS[ts].second/2;
         int neighbourEdgeId = alphaEdges[neighbourIdx];
+        if(printEnabled)
         printf("%d : \t checking %d\n", edgeId, neighbourEdgeId);
         if(neighbourEdgeId>edgeId and 
             neighbourEdgeId<minDescendent)
@@ -368,7 +395,7 @@ int alphaTree_t::findAlphaParent(int edgeId)
 
         ts = alphaEulerExit[neighbourIdx]+1; 
     }
-
+    if(printEnabled)
     printf(":\t min %d max %d \n ", minDescendent, maxAncestor);
 
     if(minDescIdx==-1) // leaf node
@@ -388,114 +415,53 @@ int alphaTree_t::findAlphaParent(int edgeId)
 }
 
 
-#if 0
-std::vector<int> alphaTree_t::getAlphaEdges(int maxLevel)
+std::vector<branchEdge_t> alphaTree_t::computeBranchEdge()
 {
-    // TODO: do this later std::vector<int>  nChildrenProcessed(m_npts-1, 0);
-    std::vector<int> splitEdgeList;
-    // initialize outsets 
-    std::vector<std::vector<int>> outSet(2*m_npts-1);
-    std::vector<int>  nChildrenProcessed(m_npts-1, 0);
-    std::vector<std::vector<int>>  childrenList(m_npts-1, std::vector<int>(2,-1)); 
-    std::vector<int>  isEdgeProcessed(m_npts-1, 0);
-    // initialize outsets 
-
-    for(int vtxId =0; vtxId< m_npts; vtxId++)
+    std::vector<branchEdge_t> branchEdge(m_npts-1);
+    // for each edge find its branch 
+    timer_t tFindAlphaParent("Finding alpha parents");
+    tFindAlphaParent.start();
+    for(int edgeId =0; edgeId< m_npts-1; edgeId++) 
+    // for(int edgeId =0; edgeId< 10; edgeId++) 
     {
-        int parent = m_vertexMaxIncidentEdgeId[vtxId];
-        for (int k = 0; k < m_incMatMST.numIncidentEdge(vtxId); k++)
-            if(m_incMatMST.k_thIncidentEdge(vtxId,k) != parent)
-                outSet[m_npts-1 + vtxId].push_back(m_incMatMST.k_thIncidentEdge(vtxId,k));
-        
-        
-        childrenList[parent][nChildrenProcessed[parent]] = m_npts-1 + vtxId;     
-
-        nChildrenProcessed[parent]++;
-        // m_numDescendents[parent]++; 
-    }
-    int nSplitEdges=0;
-    int nLeafEdges=0;
-    std::vector<int> isSplitEdge(m_npts-1,0);
-    for ( int edgeId = 0; edgeId < m_npts-1; edgeId++)
-    {
-        if(nChildrenProcessed[edgeId]==0)
+        int alParent = findAlphaParent(edgeId );
+        if(alParent!=-1 and printEnabled)
+        printf(" alphaParent(%d)  :\t %d (%d) \n", edgeId, alphaEdges[alParent], alParent);
+        //TODO: -1 case 
+        if(alParent==-1)
+            branchEdge[edgeId] = branchEdge_t(-1, edgeId);     
+        else 
         {
-            nSplitEdges++;
-            isSplitEdge[edgeId]=1;
-        }
-            
-        if(nChildrenProcessed[edgeId]==2)
-            nLeafEdges++;
-    }
-        
-    // std::cout<<"Number of split edges ="<<nSplitEdges<<" as percentage  "<<100.0*nSplitEdges/(m_npts-1) << "\n";
-    int level=0; 
-    std::cout<<"| Level \t| #LeafEdges \t| #SplitEdges \t|" << "\n";
-    
-    int edgesNotProcessed = m_npts-1;
-    while(edgesNotProcessed>1)      // no need to process vertex zero
-    {
-        nLeafEdges=0;
-        
-        for ( int edgeId = 0; edgeId < m_npts-1; edgeId++)
-        {
-            /* code */
-            if(!isEdgeProcessed[edgeId]  // edge is not processed
-                && nChildrenProcessed[edgeId]==2)        // both its childrens are processed
-            {
-                nLeafEdges++; 
-                if(isSplitEdge[edgeId])
-                    nSplitEdges--;  
-                // std::cout<<"Processing " <<edgeId<<"\n";
-                int left = childrenList[edgeId][0];
-                int right = childrenList[edgeId][1];
-                // main compute step 
-                outSet[edgeId] = mergeOutSets(outSet[left], outSet[right]);
-                auto parentIt = std::max_element(outSet[edgeId].begin(), outSet[edgeId].end());
-
-                // up
-                m_edgeParent[edgeId] = *parentIt;
-                // std::cout<<"Parent is "<< m_edgeParent[edgeId]<<"\n";
-                int outsetSize = outSet[edgeId].size(); 
-                if(parentIt != outSet[edgeId].end()-1)
-                    *parentIt =outSet[edgeId][outsetSize-1]; // set to last element 
-                outSet[edgeId].resize(outsetSize-1);
-
-                int parent = m_edgeParent[edgeId];
-                childrenList[parent][nChildrenProcessed[parent]] = edgeId; 
-                nChildrenProcessed[parent]++;
-                m_numDescendents[parent] += m_numDescendents[edgeId];
-                if (isValidCluster(edgeId))
-                    m_numChildCluster[parent] += 1;
-                
-                isEdgeProcessed[edgeId] =1; 
-                // reduce index 
-                edgesNotProcessed--;
-            }
-        }
-        if(level%10==0)
-        std::cout<<"|"<<level<<"\t|"<< nLeafEdges<< "\t|" << nSplitEdges <<"\t|" << "\n";
-        level++; 
-        // std::cout<<"edgesNotProcessed" << edgesNotProcessed<<"\n"; 
-        // loopCount++;
-        // if(loopCount==100) exit(0);
-        if(level==maxLevel) break;
-    }
-
-    // int nSplitEdges=0;
-    // int nLeafEdges=0;
-    // std::vector<int> isSplitEdge(m_npts-1,0);
-    for ( int edgeId = 0; edgeId < m_npts-1; edgeId++)
-    {
-        if(nChildrenProcessed[edgeId]==0)
-        {
-            // nSplitEdges++;
-            // isSplitEdge[edgeId]=1;
-            splitEdgeList.push_back(edgeId);
-            printf("Adding %d\n", edgeId);
+            // int mstParent = alphaParents[alParent];
+            int mstParent = alphaEdges[alParent];
+            int myBranch = 2*alParent; 
+            myBranch += isLeftOfEdge(edgeId, mstParent);
+            branchEdge[edgeId] = branchEdge_t(myBranch, edgeId); 
         }
     }
+    tFindAlphaParent.end();
+    tFindAlphaParent.print();
+    // exit(0);
+    // TODO: branchEdgeComparator 
+    timer_t tSortBranchEdge("Branch Edge-sorting");
+    tSortBranchEdge.start();
+    std::sort(branchEdge.begin(),branchEdge.end(), branchEdgeComparator());
+    tSortBranchEdge.end();
+    tSortBranchEdge.print();
 
-    return splitEdgeList;
+    return branchEdge;
 }
-#endif 
+// std::vector<int> alphaTree_t::computeFlatClustering(int minClusterSize)
+// {
+//     std::vector<int> chainHeads;
+//     std::vector<int> chainLengths;
+//     std::vector<int> chainDescendents;
+//     std::vector<int> chainStabilityScores;
+//     std::vector<int> chainDelta;
+
+//     // computing chain heads 
+
+
+// }
+
+
