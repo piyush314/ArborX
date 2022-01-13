@@ -61,3 +61,15 @@ int incidenceMatrix_t::maxIncidentEdgeId(int vtx)
     return  *std::max_element(&m_edgeIdx[m_vEdgeListIndex[vtx]],
             &m_edgeIdx[m_vEdgeListIndex[vtx+1]]);
 }
+
+
+int incidenceMatrix_t::isLeafEdge(int edgeIdx)
+{
+    int termVertex1 = m_wtMST[edgeIdx].first.first;
+    int termVertex2 = m_wtMST[edgeIdx].first.second;
+
+    if(edgeIdx < maxIncidentEdgeId(termVertex1) ||
+        edgeIdx < maxIncidentEdgeId(termVertex2) )
+        return 0; 
+    return 1; 
+}

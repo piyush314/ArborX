@@ -18,6 +18,7 @@ public:
     int k_thIncidentEdge(int vertexId, int k);
     std::vector<int> maxIncidentEdgeId();
     int maxIncidentEdgeId(int vtx);
+    int isLeafEdge(int edgeIdx);
 };
 
 

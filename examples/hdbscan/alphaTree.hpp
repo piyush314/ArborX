@@ -46,8 +46,12 @@ public:
     std::vector<int> constructEdgeTree();
     int findAlphaParent(int edgeId);
 
-    std::vector<int> computeFlatClustering();
+    // std::vector<int> computeFlatClustering();
+    std::vector<int> computeFlatClustering(int minClusterSize);
     std::vector<branchEdge_t> computeBranchEdge();
+
+
+    int alphaParent2Branch(int edgeId, int alphaParentIdx);
     
 }; 
 

@@ -128,7 +128,7 @@ void edgeHierarchy_t::constructEdgeTreeBottomUP()
                 edgesNotProcessed--;
             }
         }
-        if(level%10==0 and printEnabled)
+        if(level%10==0 and printEnabled )
         std::cout<<"|"<<level<<"\t|"<< nLeafEdges<< "\t|" << nSplitEdges <<"\t|" << "\n";
         level++; 
         // std::cout<<"edgesNotProcessed" << edgesNotProcessed<<"\n"; 

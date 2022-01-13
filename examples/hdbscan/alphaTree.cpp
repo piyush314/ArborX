@@ -31,7 +31,9 @@ std::vector<int> alphaTree_t::getAlphaEdges()
     std::vector<int> isSplitEdge(m_npts-1,0);
     for ( int edgeId = 0; edgeId < m_npts-1; edgeId++)
     {
-        if(nChildrenProcessed[edgeId]==0)
+        // if(edgeId==0)
+
+        if(nChildrenProcessed[edgeId]==0 || edgeId==0)
         {
             nSplitEdges++;
             isSplitEdge[edgeId]=1;
@@ -154,7 +156,7 @@ std::vector<int> alphaTree_t::constructAlphaTree()
                 myBranch[edge] = 2*parent[edge];
 
                 if(isLeftOfEdge(iam, alphaEdges[parent[edge]]))
-                    myBranch[edge]++; 
+                    myBranch[edge]++;   
 
                 if(maxVertexMyBranch[myBranch[edge]]>iam)
                 {
@@ -198,42 +200,9 @@ std::vector<int> alphaTree_t::constructEdgeTree()
 {
     int printEnabled=0;
     //Assumption no edges have been processed
-    #if 1
+    
     std::vector<branchEdge_t> branchEdge = computeBranchEdge();
-    #else 
-
-    std::vector<branchEdge_t> branchEdge(m_npts-1);
-    // for each edge find its branch 
-    timer_t tFindAlphaParent("Finding alpha parents");
-    tFindAlphaParent.start();
-    for(int edgeId =0; edgeId< m_npts-1; edgeId++) 
-    // for(int edgeId =0; edgeId< 10; edgeId++) 
-    {
-        int alParent = findAlphaParent(edgeId );
-        if(alParent!=-1 and printEnabled)
-        printf(" alphaParent(%d)  :\t %d (%d) \n", edgeId, alphaEdges[alParent], alParent);
-        //TODO: -1 case 
-        if(alParent==-1)
-            branchEdge[edgeId] = branchEdge_t(-1, edgeId);     
-        else 
-        {
-            // int mstParent = alphaParents[alParent];
-            int mstParent = alphaEdges[alParent];
-            int myBranch = 2*alParent; 
-            myBranch += isLeftOfEdge(edgeId, mstParent);
-            branchEdge[edgeId] = branchEdge_t(myBranch, edgeId); 
-        }
-    }
-    tFindAlphaParent.end();
-    tFindAlphaParent.print();
-    // exit(0);
-    // TODO: branchEdgeComparator 
-    timer_t tSortBranchEdge("Branch Edge-sorting");
-    tSortBranchEdge.start();
-    std::sort(branchEdge.begin(),branchEdge.end(), branchEdgeComparator());
-    tSortBranchEdge.end();
-    tSortBranchEdge.print();
-    #endif 
+    
     // mark the parents 
     std::vector<int> globalParents(m_npts-1,-1);
     timer_t tMarkingParents("Marking Parents");
@@ -451,17 +420,124 @@ std::vector<branchEdge_t> alphaTree_t::computeBranchEdge()
 
     return branchEdge;
 }
-// std::vector<int> alphaTree_t::computeFlatClustering(int minClusterSize)
-// {
-//     std::vector<int> chainHeads;
-//     std::vector<int> chainLengths;
-//     std::vector<int> chainDescendents;
-//     std::vector<int> chainStabilityScores;
-//     std::vector<int> chainDelta;
 
-//     // computing chain heads 
+int branch2AlphaEdge(int branchId)
+{
+    return branchId/2;
+}
+
+int alphaTree_t::alphaParent2Branch(int edgeId, int alphaParentIdx)
+{
+    int myBranch = 2*alphaParentIdx;
+    if(isLeftOfEdge(edgeId, alphaEdges[alphaParentIdx]))
+                    myBranch++;   
+
+    return myBranch; 
+}
 
 
-// }
+std::vector<int> alphaTree_t::computeFlatClustering(int minClusterSize)
+{
+    std::vector<int> brHeads(2*numAlphaEdges,-1);
+    
+    std::vector<int> alphaDescendents(numAlphaEdges,0);
+    
+    std::vector<float> brStabilityScores(2*numAlphaEdges,0.0);
+    std::vector<float> brSHatScores(2*numAlphaEdges,0.0);
+    std::vector<int> brDelta(2*numAlphaEdges,1);
+    std::vector<int> brLength(2*numAlphaEdges,0);
+
+    // first compute branch edge 
+    std::vector<branchEdge_t> branchEdge = computeBranchEdge();
+    // computing chain lengths 
+    // why is it starting from 1?
+    for(int iEdge =0; iEdge < m_npts-1; iEdge++)
+    {
+        // branchEdge is not sorted so iEdge is not equal to 
+        // edgeIdx of MST
+        int myBranch = branchEdge[iEdge].branch;
+        int edgeId = branchEdge[iEdge].edgeIdx; 
+        int myAlParent = branch2AlphaEdge(myBranch);
+
+        //TODO: edgeId is leaf 
+        if(m_incMatMST.isLeafEdge(edgeId))
+        {
+            alphaDescendents[myAlParent]+=2; 
+        }
+        else 
+        {
+            alphaDescendents[myAlParent] +=1;
+        }
+        
+        
+        /*Adding stability score to branch */
+        int parent = alphaEdges[myAlParent];
+        brStabilityScores[myBranch] += 
+            (1.0/ m_wtSortedMST[edgeId].second -1.0/ m_wtSortedMST[parent].second) ; 
+
+        /*
+        *   branch head calculation 
+        *   TODO: is it needed?
+        *  Its needed for mapping flat cluster to original one 
+        */
+        
+        if( branchEdge[iEdge].branch != branchEdge[iEdge-1].branch ) 
+            brHeads[myBranch] = branchEdge[iEdge].edgeIdx; 
+        
+    }
+
+    // compute brDescendents 
+    std::vector<int> numAlphaChildrens(numAlphaEdges,0);
+    std::vector<int> numAlphaChildProcessed(numAlphaEdges,0);
+    std::vector<int> qAlphaProcessed(numAlphaEdges,0);
+    for(int i=0; i<numAlphaEdges; i++)
+        if(alphaParents[i] != -1)
+            numAlphaChildrens[alphaParents[i]]++; 
+        
+    
+
+    // bottom-up traversal 
+    int numEdges2Process = numAlphaEdges; 
+
+    while(numEdges2Process)
+    {
+        for(int i=0; i< numAlphaEdges; i++)
+        {
+            if(qAlphaProcessed[i] != 0 and 
+            numAlphaChildrens[i] == numAlphaChildProcessed[i]
+            )
+            {
+                if(alphaParents[i] != -1)
+                {
+                    //update descendents 
+                    alphaDescendents[alphaParents[i]] += alphaDescendents[i]; 
+                    
+                    // update stability score of my branch 
+                    int edgeId = alphaEdges[i];
+                    int parent = alphaEdges[alphaParents[i]];
+                    int myBranch = alphaParent2Branch(edgeId, alphaParents[i]);
+                    brStabilityScores[myBranch] += alphaDescendents[i]*
+                        (1.0/ m_wtSortedMST[edgeId].second - 1.0/ m_wtSortedMST[parent].second) ; 
+                    
+                    // update mySHat and delta 
+                    if(brStabilityScores[myBranch] < brSHatScores[myBranch])
+                        brDelta[myBranch] =0;
+                    else 
+                        brSHatScores[myBranch] = brStabilityScores[myBranch];
+                    
+                    // update sHat of myParent 
+                    int myParentsBranch = alphaParent2Branch(parent, alphaParents[alphaParents[i]]);
+                    if(myParentsBranch != -1)
+                        brSHatScores[myParentsBranch] += brSHatScores[myBranch];
+
+                    numAlphaChildProcessed[alphaParents[i]]++;
+
+                }
+                qAlphaProcessed[i]=1; 
+                numEdges2Process--;
+            }
+        }
+    }
+}
 
 
