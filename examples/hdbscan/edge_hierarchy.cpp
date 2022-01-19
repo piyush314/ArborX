@@ -195,6 +195,18 @@ m_wtSortedMST(wtSortedMST), m_incMatMST(wtSortedMST), m_minClusterSize(minCluste
     std::cout<<"Testing successful" << "\n";
     tDgramBottomUp.print();
     tDgramFromAtree.print();
+
+    // Testing 
+    std::cout<<"Checking number of descendents\n" ;
+    auto flatClustering = alphaTree.computeFlatClustering(5);
+    for(int branchId=0; branchId < alphaTree.numBranches(); branchId++ )
+    {
+        auto branchHead = alphaTree.getBranchHead(branchId);
+        std::cout<< branchHead <<"  " <<m_numDescendents[branchHead]<< "  "<<alphaTree.numBrDescedents(branchId) <<"\n";
+        assert(m_numDescendents[branchHead] == alphaTree.numBrDescedents(branchId));
+
+    }
+    std::cout<<"......... successful" << "\n";
     exit(0);
     
     #else 

@@ -19,6 +19,7 @@ public:
     std::vector<int> maxIncidentEdgeId();
     int maxIncidentEdgeId(int vtx);
     int isLeafEdge(int edgeIdx);
+    int isAlphaEdge(int edgeIdx);
 };
 
 

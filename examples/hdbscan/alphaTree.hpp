@@ -52,7 +52,35 @@ public:
 
 
     int alphaParent2Branch(int edgeId, int alphaParentIdx);
+    int branchParent(int branchId);
+
+    // branch related stuffs
+    std::vector<branchEdge_t> m_sortedBranchEdgeArr; 
+    int m_numBranches; 
+	// std::vector<int> brHeads(numBranches, -1);
+    std::vector<int> brIHeads;
+	std::vector<int> brDescendents;
+    std::vector<int> brLength;
+
+	std::vector<float> brStabilityScores;
+	std::vector<float> brSHatScores;
+	std::vector<int> brDelta;
+	
+
+    int numBrDescedents(int branchId)
+    {
+        return brDescendents[branchId] + brLength[branchId];
+    }
     
+    int numBranches()
+    {
+        return m_numBranches;
+    }
+
+    int getBranchHead( int branchId)
+    {
+        return m_sortedBranchEdgeArr[brIHeads[branchId]].edgeIdx;
+    }
 }; 
 
 struct branchEdgeComparator
