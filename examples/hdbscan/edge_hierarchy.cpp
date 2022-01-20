@@ -198,15 +198,33 @@ m_wtSortedMST(wtSortedMST), m_incMatMST(wtSortedMST), m_minClusterSize(minCluste
 
     // Testing 
     std::cout<<"Checking number of descendents\n" ;
-    auto flatClustering = alphaTree.computeFlatClustering(5);
+    auto flatClustering = alphaTree.computeFlatClustering(m_minClusterSize);
     for(int branchId=0; branchId < alphaTree.numBranches(); branchId++ )
     {
         auto branchHead = alphaTree.getBranchHead(branchId);
-        std::cout<< branchHead <<"  " <<m_numDescendents[branchHead]<< "  "<<alphaTree.numBrDescedents(branchId) <<"\n";
+        // std::cout<< branchHead <<"  " <<m_numDescendents[branchHead]<< "  "<<alphaTree.numBrDescedents(branchId) <<"\n";
         assert(m_numDescendents[branchHead] == alphaTree.numBrDescedents(branchId));
 
     }
     std::cout<<"......... successful" << "\n";
+    auto delta = computeDelta();
+    // m_flatClusterMap = constructFlatMap(delta);
+
+    // Checking stability score for TrueClusters
+    std::cout<<"Checking stability score for Alpha Edges\n" ;
+    for(int branchId=0; branchId < alphaTree.numBranches(); branchId++ )
+    {
+        auto branchHead = alphaTree.getBranchHead(branchId);
+        if(branchHead!=0)
+        {
+            if( fabs(m_stabilityScore[branchHead]- alphaTree.getBrStabilityScore(branchId))>1e-3)
+            std::cout<< branchHead <<"  ("<< branchId<<") " <<m_stabilityScore[branchHead]<< "  "<<alphaTree.getBrStabilityScore(branchId) <<"\n";
+            // assert(m_stabilityScore[branchHead] == alphaTree.getBrStabilityScore(branchId));
+        }
+        
+
+    }
+
     exit(0);
     
     #else 
@@ -220,8 +238,8 @@ m_wtSortedMST(wtSortedMST), m_incMatMST(wtSortedMST), m_minClusterSize(minCluste
 
     constructEdgeTreeBottomUP();
     #endif 
-    auto delta = computeDelta();
-    m_flatClusterMap = constructFlatMap(delta);
+    // auto delta = computeDelta();
+    // m_flatClusterMap = constructFlatMap(delta);
     
 }
 

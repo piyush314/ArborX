@@ -39,7 +39,7 @@ class edgeHierarchy_t
     int m_minClusterSize=3;
     bool isValidCluster(int edgeIdx)
     {
-        return m_numDescendents[edgeIdx]>m_minClusterSize; 
+        return m_numDescendents[edgeIdx]>=m_minClusterSize; 
     }
 
     bool isTrueCluster(int edgeId)

@@ -81,6 +81,9 @@ public:
     {
         return m_sortedBranchEdgeArr[brIHeads[branchId]].edgeIdx;
     }
+
+    // int getAlphaEdge( int alEdgeId) {return alphaEdges[alEdgeId];}
+    float getBrStabilityScore( int branchId) { return brStabilityScores[branchId]; }
 }; 
 
 struct branchEdgeComparator
