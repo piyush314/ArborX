@@ -186,7 +186,7 @@ std::vector<int> edgeHierarchy_t::computeDelta()
                 m_stabilityScore[parent] += m_numDescendents[edgeId]*1.0/ m_wtSortedMST[edgeId].second;
                 if(verbose)
                 printf("a. s[%d] \t+= %d x (1/%f ) \t= %f\n", parent,m_numDescendents[edgeId],
-                     m_wtSortedMST[parent].second, m_stabilityScore[parent] );
+                     m_wtSortedMST[edgeId].second, m_stabilityScore[parent] );
             }
 
             if(m_numChildCluster[edgeId]==1)
