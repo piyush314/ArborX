@@ -137,7 +137,7 @@ std::vector<int> edgeHierarchy_t::computeDelta()
 #else 
 std::vector<int> edgeHierarchy_t::computeDelta()
 {
-    int verbose=0;
+    int verbose=1;
     auto sHatScore =m_stabilityScore;
     std::vector<int> delta(m_npts - 1, 1);   
 

@@ -547,7 +547,7 @@ std::vector<int> alphaTree_t::computeFlatClustering(int minClusterSize)
                     printf(" Processing %d: stabScore =%f, chain contri =%f\n",i,
                         brStabilityScores[i],chainStabilityContribution[i] );
 					
-					if(totalDescendents <= minClusterSize   )
+					if(totalDescendents < minClusterSize   )
                     {
                         // invalid cluster 
                         brStabilityScores[i] =0; 
@@ -561,13 +561,48 @@ std::vector<int> alphaTree_t::computeFlatClustering(int minClusterSize)
                         numValidChildrens[branchParent(i)]++;  
                         
                         float ancStabContribution  =  1.0*totalDescendents / m_wtSortedMST[ alphaEdges[branch2AlphaEdge(i)]].second;
-                        // let selfContri = chainContri[i] + brDescendents[i]/myLength
-                        // the last edge of the chain 
-                        int etxFinal = brLength[i]-1 -isLeafBranch[i];
-                        if(brLength[i]==0) etxFinal=0;
+
+                    printf("Ancestor = %d: length=%d, contribution= %f\n",alphaEdges[branch2AlphaEdge(i)],
+                        totalDescendents,ancStabContribution );
+                        #if 1
+                        int chainLength = isLeafBranch[i]? brLength[i] -1 : brLength[i]+1;
+                        int branchStartEdge = brIHeads[i];
+                        if(brDescendents[i] >= minClusterSize)
+                        {
+                            
+                            int etxFinalEdgeId = branchEdge[branchStartEdge+chainLength-1].edgeIdx;
+                            float etWt = 1.0 / m_wtSortedMST[etxFinalEdgeId].second;
+                            chainStabilityContribution[i] += etWt*brDescendents[i];
+
+                        }
+                        else
+                        {
+                            int eta = minClusterSize- brDescendents[i];
+                            if(isLeafBranch[i]) eta -= 2; 
+                            if(eta <0) eta=0;
+                            int etStart = chainLength-1 - eta; 
+                            // if(isLeafBranch[i]) etStart++;
+                            int etxFinalEdgeId = branchEdge[branchStartEdge+etStart].edgeIdx;
+                            float etWt = 1.0 / m_wtSortedMST[etxFinalEdgeId].second;
+                            for( int etx=etStart; etx< chainLength-1; etx++)
+                            {
+                                int edgeId = branchEdge[branchStartEdge+etx].edgeIdx;
+                                chainStabilityContribution[i] +=(etWt - 1.0 / m_wtSortedMST[edgeId].second) ;
+                            }
+                            if(isLeafBranch[i] and minClusterSize!=1 )
+                            {
+                                int edgeId = branchEdge[branchStartEdge+(chainLength-1)].edgeIdx;
+                                chainStabilityContribution[i] += 2*(etWt - 1.0 / m_wtSortedMST[edgeId].second) ;
+                            }
+                            chainStabilityContribution[i] += etWt*brDescendents[i];
+                            printf("eta=%d, etStart=%d etxFinalEdgeId =%d \n", eta, etStart, etxFinalEdgeId );
+                        }
+                        #else 
+                        int etxFinal;
+                        etxFinal = brLength[i] - 2*isLeafBranch[i];
                         if(brDescendents[i] < minClusterSize)
                         {
-                            etxFinal = totalDescendents-minClusterSize-isLeafBranch[i];
+                            etxFinal = totalDescendents-minClusterSize-isLeafBranch[i]+1;
                         }
                         
                         int branchStartEdge = brIHeads[i];
@@ -581,31 +616,34 @@ std::vector<int> alphaTree_t::computeFlatClustering(int minClusterSize)
                             if(m_incMatMST.isLeafEdge(edgeId)) nvtx=2.0;
                             chainStabilityContribution[i] +=nvtx*(etWt - 1.0 / m_wtSortedMST[edgeId].second) ;
                         }
-                        printf("i = %d : ,%d, %d  etWt=%f, %f \n", i, etxFinal, etxFinalEdgeId, etWt,chainStabilityContribution[i]);
+                        printf("i = %d : etxfinal=%d, edgeid=%d, branchlength=%d,  etWt=%f, %f \n", i, etxFinal, etxFinalEdgeId,
+									brLength[i],
+								 etWt,chainStabilityContribution[i]);
                         chainStabilityContribution[i] += etWt*brDescendents[i];
-                        
+                        #endif 
                         
                         brDelta[i] =1;
                             // very valid cluster 
+								// printf("")
                         if(numValidChildrens[i]==0)
                         {
                             brStabilityScores[i] = chainStabilityContribution[i] - ancStabContribution;
                             brSHatScores[i] =brStabilityScores[i]; 
-                            printf(" %d : chain = %f, ancContri =%f \n", i, chainStabilityContribution[i], 
+                            printf(" %d : 0: chain = %f, ancContri =%f \n", i, chainStabilityContribution[i], 
                             ancStabContribution);
                         }
                         else if(numValidChildrens[i]==1)
                         {
                             brStabilityScores[i] = brStabilityScores[i]+ chainStabilityContribution[i] - ancStabContribution;
                             brSHatScores[i] =brStabilityScores[i]; 
-                            printf(" %d : descdn =%f, chain = %f, ancContri =%f \n", i,brStabilityScores[i], chainStabilityContribution[i], 
+                            printf(" %d : 1: descdn =%f, chain = %f, ancContri =%f \n", i,brStabilityScores[i], chainStabilityContribution[i], 
                             ancStabContribution);
                             
                         }
                         else /* two valid childrens */
                         {
                             brStabilityScores[i] =  chainStabilityContribution[i] - ancStabContribution;
-                            printf(" %d : chain = %f, ancContri =%f \n", i, chainStabilityContribution[i], 
+                            printf(" %d : 2: chain = %f, ancContri =%f \n", i, chainStabilityContribution[i], 
                             ancStabContribution);
                             if(brSHatScores[i]> brStabilityScores[i])
                             {

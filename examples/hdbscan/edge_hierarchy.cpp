@@ -215,16 +215,18 @@ m_wtSortedMST(wtSortedMST), m_incMatMST(wtSortedMST), m_minClusterSize(minCluste
     for(int branchId=0; branchId < alphaTree.numBranches(); branchId++ )
     {
         auto branchHead = alphaTree.getBranchHead(branchId);
-        if(branchHead!=0)
+        if(branchHead!=0 and isTrueCluster(branchHead))
         {
-            if( fabs(m_stabilityScore[branchHead]- alphaTree.getBrStabilityScore(branchId))>1e-3)
+            if( fabs(m_stabilityScore[branchHead]- alphaTree.getBrStabilityScore(branchId))/
+                (m_stabilityScore[branchHead]+ alphaTree.getBrStabilityScore(branchId))
+            >1e-3)
             std::cout<< branchHead <<"  ("<< branchId<<") " <<m_stabilityScore[branchHead]<< "  "<<alphaTree.getBrStabilityScore(branchId) <<"\n";
             // assert(m_stabilityScore[branchHead] == alphaTree.getBrStabilityScore(branchId));
         }
         
 
     }
-
+    std::cout<<"......... successful" << "\n";
     exit(0);
     
     #else 
