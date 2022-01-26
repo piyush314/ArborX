@@ -5,10 +5,13 @@
 #include <cstdio>
 #include <iostream>
 #include <sstream>
-
+#include <limits>
 #include "edge_hierarchy.hpp"
 #include "incidence_matrix.hpp"
 #include "timer.hpp"
+
+
+const float FLOAT_EPSILON=std::numeric_limits<float>::epsilon();
 
 int printEnabled = 0;
 
@@ -442,7 +445,7 @@ int alphaTree_t::branchParent(int branchId)
 
 std::vector<int> alphaTree_t::computeFlatClustering(int minClusterSize)
 {
-
+    int verbose=0;
     std::vector<int> flatClustering;
 	m_numBranches = 2 * numAlphaEdges + 1;
 	// std::vector<int> brHeads(m_numBranches, -1);
@@ -469,32 +472,27 @@ std::vector<int> alphaTree_t::computeFlatClustering(int minClusterSize)
 		int edgeId = branchEdge[iEdge].edgeIdx;
 		int myAlParent = branch2AlphaEdge(myBranch);
 
-		// TODO: edgeId is leaf
-        // if (m_incMatMST.isAlphaEdge(edgeId))
+		
 		if (m_incMatMST.isLeafEdge(edgeId))
 		{
-			// alphaDescendents[myAlParent]+=2;
-			// brDescendents[myBranch] += 2;
-            std::cout<<edgeId<<" Adding 2 to branch "<<myBranch<< "  len ="<<brLength[myBranch]<< "\n";
+			
 			brLength[myBranch] += 2;
             isLeafBranch[myBranch]=1;
+            if(verbose)
             printf("Stb %f: adding %f\n  ", chainStabilityContribution[myBranch],2.0 / m_wtSortedMST[edgeId].second);
             chainStabilityContribution[myBranch] += 2.0 / m_wtSortedMST[edgeId].second;
 		}
 		else if (!m_incMatMST.isAlphaEdge(edgeId))
-		{
-			// alphaDescendents[myAlParent] +=1;
-			// brDescendents[myBranch] += 1;
-            std::cout<<edgeId<<" Adding 1 to branch "<<myBranch<<"  len ="<<brLength[myBranch]<< "\n";
-			brLength[myBranch] += 1;
+		{   
+            brLength[myBranch] += 1;
+            if(verbose)
             printf("Stb %f: adding %f\n  ", chainStabilityContribution[myBranch],1.0 / m_wtSortedMST[edgeId].second);
             chainStabilityContribution[myBranch] += 1.0 / m_wtSortedMST[edgeId].second;
 		}
 
-
+        // Top of the chain 
 		if (iEdge == 0 || branchEdge[iEdge].branch != branchEdge[iEdge - 1].branch)
         {
-            // brHeads[myBranch] = branchEdge[iEdge].edgeIdx;
             brIHeads[myBranch] = iEdge; 
         }
 			
@@ -511,10 +509,7 @@ std::vector<int> alphaTree_t::computeFlatClustering(int minClusterSize)
     {
         if (branchParent(i) != -1)
         {
-            std::cout<<" i ="<<i<<"  breanch Head "<<getBranchHead(i)<<" "<<getBranchHead(branchParent(i))<<
-            "  len "<<brLength[i] <<"\n";
-        
-			numBranchChildrens[branchParent(i)]++;
+            numBranchChildrens[branchParent(i)]++;
         }
         
     }
@@ -530,6 +525,7 @@ std::vector<int> alphaTree_t::computeFlatClustering(int minClusterSize)
             if (qBranchProcessed[i] == 0 and
 					numBranchChildrens[i] == numChildBranchProcessed[i])
 			{
+                if(verbose)
                 std::cout<<i<<" -> Parent ="<< branchParent(i) <<"\n";
 				if (branchParent(i) != -1)
 				{
@@ -543,7 +539,7 @@ std::vector<int> alphaTree_t::computeFlatClustering(int minClusterSize)
                     // or 2. your number of descdends are greater than mincluster
                     // or 3. it becomes a valid cluster at this point 
                     // the third case is the difficult one
-
+                    if(verbose)
                     printf(" Processing %d: stabScore =%f, chain contri =%f\n",i,
                         brStabilityScores[i],chainStabilityContribution[i] );
 					
@@ -551,7 +547,6 @@ std::vector<int> alphaTree_t::computeFlatClustering(int minClusterSize)
                     {
                         // invalid cluster 
                         brStabilityScores[i] =0; 
-                        // sHat and delta are don't care 
                         brDelta[i] =0; 
                         brSHatScores[i] =0; 
                     }
@@ -561,10 +556,10 @@ std::vector<int> alphaTree_t::computeFlatClustering(int minClusterSize)
                         numValidChildrens[branchParent(i)]++;  
                         
                         float ancStabContribution  =  1.0*totalDescendents / m_wtSortedMST[ alphaEdges[branch2AlphaEdge(i)]].second;
-
-                    printf("Ancestor = %d: length=%d, contribution= %f\n",alphaEdges[branch2AlphaEdge(i)],
+                        if(verbose)
+                        printf("Ancestor = %d: length=%d, contribution= %f\n",alphaEdges[branch2AlphaEdge(i)],
                         totalDescendents,ancStabContribution );
-                        #if 1
+                        
                         int chainLength = isLeafBranch[i]? brLength[i] -1 : brLength[i]+1;
                         int branchStartEdge = brIHeads[i];
                         if(brDescendents[i] >= minClusterSize)
@@ -595,47 +590,47 @@ std::vector<int> alphaTree_t::computeFlatClustering(int minClusterSize)
                                 chainStabilityContribution[i] += 2*(etWt - 1.0 / m_wtSortedMST[edgeId].second) ;
                             }
                             chainStabilityContribution[i] += etWt*brDescendents[i];
+                            if(verbose)
                             printf("eta=%d, etStart=%d etxFinalEdgeId =%d \n", eta, etStart, etxFinalEdgeId );
                         }
-                        #else 
-                        int etxFinal;
-                        etxFinal = brLength[i] - 2*isLeafBranch[i];
-                        if(brDescendents[i] < minClusterSize)
-                        {
-                            etxFinal = totalDescendents-minClusterSize-isLeafBranch[i]+1;
-                        }
                         
-                        int branchStartEdge = brIHeads[i];
-                        int etxFinalEdgeId = branchEdge[branchStartEdge+etxFinal].edgeIdx;
-                        float etWt = 1.0 / m_wtSortedMST[etxFinalEdgeId].second;
-                        for( int etx=etxFinal; etx< brLength[i]-isLeafBranch[i]; etx++)
-                        {
-                            int branchStartEdge = brIHeads[i];
-                            int edgeId = branchEdge[branchStartEdge+etx].edgeIdx;
-                            float nvtx=1.0;
-                            if(m_incMatMST.isLeafEdge(edgeId)) nvtx=2.0;
-                            chainStabilityContribution[i] +=nvtx*(etWt - 1.0 / m_wtSortedMST[edgeId].second) ;
-                        }
-                        printf("i = %d : etxfinal=%d, edgeid=%d, branchlength=%d,  etWt=%f, %f \n", i, etxFinal, etxFinalEdgeId,
-									brLength[i],
-								 etWt,chainStabilityContribution[i]);
-                        chainStabilityContribution[i] += etWt*brDescendents[i];
-                        #endif 
                         
                         brDelta[i] =1;
-                            // very valid cluster 
-								// printf("")
+                        
                         if(numValidChildrens[i]==0)
                         {
                             brStabilityScores[i] = chainStabilityContribution[i] - ancStabContribution;
+                            //TODO: check the following 
+                            if(brStabilityScores[i] <= std::max(chainStabilityContribution[i], ancStabContribution)*FLOAT_EPSILON)
+                            {
+                                brStabilityScores[i]=0;
+                                brDelta[i] = 0; 
+                            }
+                                
                             brSHatScores[i] =brStabilityScores[i]; 
+                            if(verbose)
                             printf(" %d : 0: chain = %f, ancContri =%f \n", i, chainStabilityContribution[i], 
                             ancStabContribution);
                         }
                         else if(numValidChildrens[i]==1)
                         {
+                            auto selfContri = brStabilityScores[i]+ chainStabilityContribution[i];
                             brStabilityScores[i] = brStabilityScores[i]+ chainStabilityContribution[i] - ancStabContribution;
-                            brSHatScores[i] =brStabilityScores[i]; 
+                            if(brStabilityScores[i] <= std::max(selfContri, ancStabContribution)*FLOAT_EPSILON)
+                            {
+                                brStabilityScores[i]=0;
+                                brDelta[i] = 0; 
+                            }
+
+                            if(brSHatScores[i]>= brStabilityScores[i])
+                            {
+                                brDelta[i] =0; // not a final cluster 
+                            }
+                            else 
+                            {
+                                brSHatScores[i]= brStabilityScores[i];
+                            }
+                            if(verbose)
                             printf(" %d : 1: descdn =%f, chain = %f, ancContri =%f \n", i,brStabilityScores[i], chainStabilityContribution[i], 
                             ancStabContribution);
                             
@@ -643,8 +638,18 @@ std::vector<int> alphaTree_t::computeFlatClustering(int minClusterSize)
                         else /* two valid childrens */
                         {
                             brStabilityScores[i] =  chainStabilityContribution[i] - ancStabContribution;
-                            printf(" %d : 2: chain = %f, ancContri =%f \n", i, chainStabilityContribution[i], 
+                            if(brStabilityScores[i] <= std::max(chainStabilityContribution[i], ancStabContribution)*FLOAT_EPSILON)
+                            {
+                                brStabilityScores[i]=0;
+                                brDelta[i] = 0; 
+                            }
+                            if(verbose)
+                            {
+                                printf(" %d : 2: chain = %f, ancContri =%f \n", i, chainStabilityContribution[i], 
                             ancStabContribution);
+                                printf("%d : stb %f, shat %f\n ",i,brStabilityScores[i], brSHatScores[i] );
+                            }
+                            
                             if(brSHatScores[i]> brStabilityScores[i])
                             {
                                 brDelta[i] =0; // not a final cluster 
@@ -659,16 +664,21 @@ std::vector<int> alphaTree_t::computeFlatClustering(int minClusterSize)
                         brStabilityScores[branchParent(i)] += brStabilityScores[i];
                         brSHatScores[branchParent(i)] += brSHatScores[i];
                         
-                        
-                            // very valid cluster 
-                        
                     } 
+                    if(verbose)
                     printf(" Final %d: stabScore =%f, chain contri =%f\n",i,
                         brStabilityScores[i],chainStabilityContribution[i] );
 				    
                     numChildBranchProcessed[branchParent(i)]++;
-                    // std::cout<<" Left to process "<<numBranch2Process<<"\n";
+                    
                 }
+                // else
+                // {
+                //     brDelta[i]=0;
+                // }
+                if(verbose)
+                printf(" branch = %d, stab = %f shat =%f, delta=%d \n", 
+                i, brStabilityScores[i], brSHatScores[i], brDelta[i]);
                 qBranchProcessed[i] = 1;
                 numBranch2Process--;
             }
@@ -676,7 +686,68 @@ std::vector<int> alphaTree_t::computeFlatClustering(int minClusterSize)
         }
     }
 
+    for (int i = 0; i < m_numBranches; i++)
+	{
+        // only if brnach-i is a true cluster, delta should be one 
+        if (branchParent(i) == -1 || 
+        numValidChildrens[branchParent(i)] != 2)
+            brDelta[i] =0; 
+
+        int totalDescendents = brDescendents[i] + brLength[i];
+        if(totalDescendents == minClusterSize)
+        {
+            printf(" i =%d, branchHead=%d,branchParent = %d,  numvalidChildrenParent=%d, parentdelta=%d \n",
+            i, m_sortedBranchEdgeArr[brIHeads[i]].edgeIdx,
+            branchParent(i), numValidChildrens[branchParent(i)],
+            brDelta[branchParent(i)]
+            );
+        }
+    }
+
+    // To compute Flat clustering for each branch 
+    std::vector<int> brFlatCluster(m_numBranches, -1);
+    for (int i = 0; i < m_numBranches; i++)
+	{
+        auto brParent =i; 
+        while(brParent != -1)
+        {
+            if(i==2020)
+            {
+                printf("  %d: ancestor=%d, stab = %f shat =%f, delta=%d\n ", i,brParent, 
+                brStabilityScores[brParent], brSHatScores[brParent],
+                brDelta[brParent]);
+            }
+            if(brDelta[brParent]==1)
+                brFlatCluster[i] = brParent; 
+            brParent = branchParent(brParent);
+            
+        }
+        
+    }
+
+    // TODO: for each edge mark the parent
+    // use m_sortedBranchEdgeArr
+    std::vector<int> edgeFlatMap(m_npts-1, -1);
+    for(int edgeId =0;edgeId<m_npts-1;edgeId++ )
+    {
+        auto gEdgeId = m_sortedBranchEdgeArr[edgeId].edgeIdx;
+        auto branchId = m_sortedBranchEdgeArr[edgeId].branch;
+        if(brFlatCluster[branchId]!= -1)
+            edgeFlatMap[gEdgeId] = m_sortedBranchEdgeArr[brIHeads[brFlatCluster[branchId]]].edgeIdx;
+        else 
+            edgeFlatMap[gEdgeId] = -1;
+        
+    }
+
+    // for(int vtx=0; vtx< m_npts; vtx++)
+    // {
+    //     auto parentEdge = ??
+    //     flatClustering[vtx] = edgeFlatMap[parentEdge];
+
+    // }
     //TODO: dummy return ;
-    return flatClustering;
+    // edgeFlatMap
+    // return flatClustering;
+    return edgeFlatMap;
 }
 

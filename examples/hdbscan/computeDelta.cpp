@@ -137,8 +137,13 @@ std::vector<int> edgeHierarchy_t::computeDelta()
 #else 
 std::vector<int> edgeHierarchy_t::computeDelta()
 {
-    int verbose=1;
+    int verbose=0;
+    // TODO: for checking shat from alpha tree delete it later 
+    #if 0
     auto sHatScore =m_stabilityScore;
+    #else 
+        sHatScore.resize(m_npts - 1, 0.0);
+    #endif 
     std::vector<int> delta(m_npts - 1, 1);   
 
     
@@ -238,8 +243,8 @@ std::vector<int> edgeHierarchy_t::computeDelta()
             {
                 sHatScore[edgeId]= m_stabilityScore[edgeId];
             }
-            // if(delta[edgeId])
-            //     std::cout<<"sHat["<<edgeId <<"] =  "<<sHatScore[edgeId]<< "\n";
+
+            if(verbose)
             std::cout<<"sHat["<<edgeId <<"] =  "<<sHatScore[edgeId]<<" "<<m_stabilityScore[edgeId]<<" "<<delta[edgeId]<< "\n";
             auto parent = m_edgeParent[edgeId];
             while(parent >-1)
@@ -247,7 +252,7 @@ std::vector<int> edgeHierarchy_t::computeDelta()
                 if(isTrueCluster(parent))
                 {
                     sHatScore[parent] += sHatScore[edgeId];
-                    // printf("%d: sHat[%d] += %f = %f\n", edgeId, parent, sHatScore[edgeId], sHatScore[parent]);
+                    
                     break;         
                 }
                 else

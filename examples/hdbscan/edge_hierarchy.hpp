@@ -68,5 +68,8 @@ class edgeHierarchy_t
     void writeGroups(std::ofstream& ofileName);
     void writeMSTdot(std::ofstream& ofileName);
     void writeClusterMaps(std::ofstream &ofileName);
+
+    // TODO: for checking shat from alpha tree delete it later 
+    std::vector<float> sHatScore;
 };
 

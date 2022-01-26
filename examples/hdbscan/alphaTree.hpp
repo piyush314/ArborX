@@ -84,6 +84,7 @@ public:
 
     // int getAlphaEdge( int alEdgeId) {return alphaEdges[alEdgeId];}
     float getBrStabilityScore( int branchId) { return brStabilityScores[branchId]; }
+    float getbrSHatScores( int branchId) { return brSHatScores[branchId]; }
 }; 
 
 struct branchEdgeComparator

@@ -155,7 +155,7 @@ m_wtSortedMST(wtSortedMST), m_incMatMST(wtSortedMST), m_minClusterSize(minCluste
     m_eulerEntry.resize(m_npts-1, 0);
     m_eulerExit.resize(m_npts-1, 0);
 
-    auto sHatScore =m_stabilityScore;
+    // auto sHatScore =m_stabilityScore;
     // std::vector<int> delta(m_npts - 1, 1);   
     // .resize(m_npts,-1);
 
@@ -198,7 +198,9 @@ m_wtSortedMST(wtSortedMST), m_incMatMST(wtSortedMST), m_minClusterSize(minCluste
 
     // Testing 
     std::cout<<"Checking number of descendents\n" ;
-    auto flatClustering = alphaTree.computeFlatClustering(m_minClusterSize);
+    // if we divide edge into flat cluster then `flatEdgeClustering[edgeId]`
+    // would denote highest ancestor of edgeId with delta=1;
+    auto flatEdgeClusteringAlpha = alphaTree.computeFlatClustering(m_minClusterSize);
     for(int branchId=0; branchId < alphaTree.numBranches(); branchId++ )
     {
         auto branchHead = alphaTree.getBranchHead(branchId);
@@ -208,7 +210,7 @@ m_wtSortedMST(wtSortedMST), m_incMatMST(wtSortedMST), m_minClusterSize(minCluste
     }
     std::cout<<"......... successful" << "\n";
     auto delta = computeDelta();
-    // m_flatClusterMap = constructFlatMap(delta);
+    
 
     // Checking stability score for TrueClusters
     std::cout<<"Checking stability score for Alpha Edges\n" ;
@@ -220,13 +222,35 @@ m_wtSortedMST(wtSortedMST), m_incMatMST(wtSortedMST), m_minClusterSize(minCluste
             if( fabs(m_stabilityScore[branchHead]- alphaTree.getBrStabilityScore(branchId))/
                 (m_stabilityScore[branchHead]+ alphaTree.getBrStabilityScore(branchId))
             >1e-3)
-            std::cout<< branchHead <<"  ("<< branchId<<") " <<m_stabilityScore[branchHead]<< "  "<<alphaTree.getBrStabilityScore(branchId) <<"\n";
+            std::cout<<"Incorrect Stability:\t"<< branchHead <<"  ("<< branchId<<") " <<m_stabilityScore[branchHead]<< "  "<<alphaTree.getBrStabilityScore(branchId) <<"\n";
             // assert(m_stabilityScore[branchHead] == alphaTree.getBrStabilityScore(branchId));
+            if( fabs(sHatScore[branchHead]- alphaTree.getbrSHatScores(branchId))/
+                (sHatScore[branchHead]+ alphaTree.getbrSHatScores(branchId))
+            >1e-3)
+            std::cout<<"Incorrect SHat Score:\t"<< branchHead <<"  ("<< branchId<<") " <<
+            sHatScore[branchHead]<< "  "<<alphaTree.getbrSHatScores(branchId) <<"\n";
         }
         
 
     }
     std::cout<<"......... successful" << "\n";
+
+
+    std::cout<<"Checking Mapping for vextices to the cluster\n" ;
+    m_flatClusterMap = constructFlatMap(delta);
+    for (int vtx = 0; vtx < m_npts; vtx++)
+    {
+        auto alphaClusterVtx = flatEdgeClusteringAlpha[m_vertexMaxIncidentEdgeId[vtx]];
+        if(m_flatClusterMap[vtx]!=alphaClusterVtx)
+        {
+            std::cout<<" vtxId= "<<vtx<<" "<<m_flatClusterMap[vtx]<<" "<<alphaClusterVtx
+            <<"\n";
+        }
+        // assert(m_flatClusterMap[vtx]==alphaClusterVtx);
+
+    }
+    std::cout<<"Successful\n" ;
+
     exit(0);
     
     #else 
