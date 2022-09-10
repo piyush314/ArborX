@@ -33,15 +33,17 @@ std::vector<int>  edgeHierarchy_t::constructFlatMap(std::vector<int>& delta)
 
     return flatClusterMap;
 }
-
-#if 0
+#include "stability.hpp"
+#if 1
 
 std::vector<int> edgeHierarchy_t::computeDelta()
 {
-    auto sHatScore =m_stabilityScore;
+    // auto sHatScore =m_stabilityScore;
+    sHatScore.resize(m_npts - 1, 0.0);
     std::vector<int> delta(m_npts - 1, 1);   
 
     std::vector<int> clDescends(m_npts - 1, 0);
+    std::vector<stability_t> SscoreBr(m_npts - 1);
     
     // Leaf cluster stabilty caclulation
     for (int vtx = 0; vtx < m_npts; vtx++)
@@ -82,12 +84,19 @@ std::vector<int> edgeHierarchy_t::computeDelta()
                     if(grandParent!=-1)
                     {
                         double tmpScore =( 1.0/ m_wtSortedMST[edgeId].second - 1.0/ m_wtSortedMST[grandParent].second);
+
                         if(m_numChildCluster[edgeId]==2)
                         {
                             m_stabilityScore[parent] += m_numDescendents[edgeId] * tmpScore;
+                            
                         }
                         else 
+                        {
                             m_stabilityScore[parent] += clDescends[edgeId] *tmpScore;
+                            SscoreBr[parent] = SscoreBr[parent] + std::make_pair(edgeId, clDescends[edgeId]);
+                            SscoreBr[parent] = SscoreBr[parent] - std::make_pair(grandParent, clDescends[edgeId]);
+                        }
+                            
 
                     }
                     break;
@@ -102,8 +111,19 @@ std::vector<int> edgeHierarchy_t::computeDelta()
         
         if (isTrueCluster(edgeId) && edgeId != 0)
         {
+            if(m_stabilityScore[edgeId]==0)
+            {
+                std::cout<<"Edge "<<edgeId<<" has zero stability score: \t ";
+                SscoreBr[edgeId].print();
+                std::cout<<"\n";
+            }
             
-            
+            if(m_stabilityScore[edgeId]<0)
+            {
+                std::cout<<"NONZERO STABILITY SCORE edgeId = "<<edgeId<<" "<<m_stabilityScore[edgeId]<<"\n";
+                // SscoreBr[edgeId].print();
+            }
+            assert(m_stabilityScore[edgeId]>=0);
             if(sHatScore[edgeId]>= m_stabilityScore[edgeId])
             {
                 delta[edgeId] =0;
@@ -135,6 +155,7 @@ std::vector<int> edgeHierarchy_t::computeDelta()
 }
 
 #else 
+
 std::vector<int> edgeHierarchy_t::computeDelta()
 {
     int verbose=0;
@@ -146,7 +167,8 @@ std::vector<int> edgeHierarchy_t::computeDelta()
     #endif 
     std::vector<int> delta(m_npts - 1, 1);   
 
-    
+    std::vector<stability_t> SscoreBr(m_npts - 1);
+
     // Leaf cluster stabilty caclulation
     for (int vtx = 0; vtx < m_npts; vtx++)
     {
@@ -154,10 +176,8 @@ std::vector<int> edgeHierarchy_t::computeDelta()
         if (parent > -1 && isValidCluster(parent) )
         {
             m_stabilityScore[parent] += 1.0/ m_wtSortedMST[parent].second; 
-            if(verbose)
-            std::cout<<"0. s["<<parent<<"] \t+= 1.0/"<<m_wtSortedMST[parent].second
-            <<" \t="<<1.0/ m_wtSortedMST[parent].second<<" \t="<<m_stabilityScore[parent]
-             << "\n";
+            SscoreBr[parent] = SscoreBr[parent] + parent;
+            
         }
             
     }
@@ -170,10 +190,7 @@ std::vector<int> edgeHierarchy_t::computeDelta()
         if (!isValidCluster(edgeId) and parent >-1 and  isValidCluster(parent))
         {
             m_stabilityScore[parent] += m_numDescendents[edgeId]*1.0/ m_wtSortedMST[parent].second;
-            if(verbose)
-            std::cout<<"1. s["<<parent<<"] \t+=" << m_numDescendents[edgeId] <<".0/"<<m_wtSortedMST[parent].second
-            <<" \t="<<m_numDescendents[edgeId]*1.0/ m_wtSortedMST[parent].second<<" \t="<<m_stabilityScore[parent]
-             << "\n";
+            SscoreBr[parent] = SscoreBr[parent] + std::make_pair(parent, m_numDescendents[edgeId]);
         }
         if (isValidCluster(edgeId))
         {
@@ -184,14 +201,13 @@ std::vector<int> edgeHierarchy_t::computeDelta()
                 {
                     m_stabilityScore[edgeId] = m_numDescendents[edgeId]*
                     (1.0/ m_wtSortedMST[edgeId].second -  1.0/ m_wtSortedMST[parent].second);
-                    if(verbose)
-                    printf("2. s[%d] \t= %d x (1/%f - 1/%f) \t= %f\n", edgeId,m_numDescendents[edgeId],
-                    m_wtSortedMST[edgeId].second, m_wtSortedMST[parent].second, m_stabilityScore[edgeId] );
+                    SscoreBr[edgeId] = SscoreBr[edgeId] + std::make_pair(edgeId, m_numDescendents[edgeId]);
+                    SscoreBr[edgeId] = SscoreBr[edgeId] - std::make_pair(parent, m_numDescendents[edgeId]);
+                    
                 }
                 m_stabilityScore[parent] += m_numDescendents[edgeId]*1.0/ m_wtSortedMST[edgeId].second;
-                if(verbose)
-                printf("a. s[%d] \t+= %d x (1/%f ) \t= %f\n", parent,m_numDescendents[edgeId],
-                     m_wtSortedMST[edgeId].second, m_stabilityScore[parent] );
+                SscoreBr[parent] = SscoreBr[parent] + std::make_pair(edgeId, m_numDescendents[edgeId]);
+                
             }
 
             if(m_numChildCluster[edgeId]==1)
@@ -200,15 +216,13 @@ std::vector<int> edgeHierarchy_t::computeDelta()
                 {
                     m_stabilityScore[edgeId] -= m_numDescendents[edgeId]*
                     ( 1.0/ m_wtSortedMST[parent].second);
-                    if(verbose)
-                    printf("3. s[%d] \t-= %d x (1/%f ) \t= %f\n", edgeId,m_numDescendents[edgeId],
-                    m_wtSortedMST[parent].second, m_stabilityScore[edgeId] );
+                    SscoreBr[edgeId] = SscoreBr[edgeId] - std::make_pair(parent, m_numDescendents[edgeId]);
+                    
                     
                 }
                 m_stabilityScore[parent] += m_stabilityScore[edgeId];
-                if(verbose)
-                printf("b. s[%d] \t+= s[%d] \t= %f\n", parent, edgeId,
-                      m_stabilityScore[parent] );
+                SscoreBr[parent] = SscoreBr[parent] + SscoreBr[edgeId];
+                
             }
             
             if(m_numChildCluster[edgeId]==2)
@@ -217,14 +231,13 @@ std::vector<int> edgeHierarchy_t::computeDelta()
                 {
                     m_stabilityScore[edgeId] = m_numDescendents[edgeId]*
                     (1.0/ m_wtSortedMST[edgeId].second -  1.0/ m_wtSortedMST[parent].second);
-                    if(verbose)
-                    printf("4. s[%d] \t= %d x (1/%f - 1/%f) \t= %f\n", edgeId,m_numDescendents[edgeId],
-                    m_wtSortedMST[edgeId].second, m_wtSortedMST[parent].second, m_stabilityScore[edgeId] );
+                    SscoreBr[edgeId] = SscoreBr[edgeId] + std::make_pair(edgeId, m_numDescendents[edgeId]);
+                    SscoreBr[edgeId] = SscoreBr[edgeId] - std::make_pair(parent, m_numDescendents[edgeId]);
+                    
                 }
                 m_stabilityScore[parent] += m_numDescendents[edgeId]*1.0/ m_wtSortedMST[edgeId].second;
-                if(verbose)
-                printf("c. s[%d] \t+= %d x (1/%f ) \t= %f\n", parent,m_numDescendents[edgeId],
-                     m_wtSortedMST[edgeId].second, m_stabilityScore[parent] );
+                SscoreBr[parent] = SscoreBr[parent] + std::make_pair(edgeId, m_numDescendents[edgeId]);
+                
             }
         }
 
@@ -234,7 +247,17 @@ std::vector<int> edgeHierarchy_t::computeDelta()
         if (isTrueCluster(edgeId) && edgeId != 0)
         {
             
+            if(SscoreBr[edgeId].getScore() != 0)
+            {
+                std::cout<<"SscoreBr["<<edgeId <<"] =  "<<SscoreBr[edgeId].getScore()<< "\n";
+            }
             
+            if(m_stabilityScore[edgeId]<0)
+            {
+                std::cout<<"NONZERO STABILITY SCORE edgeId = "<<edgeId<<" "<<m_stabilityScore[edgeId]<<"\n";
+                SscoreBr[edgeId].print();
+            }
+            assert(m_stabilityScore[edgeId]>=0);
             if(sHatScore[edgeId]>= m_stabilityScore[edgeId])
             {
                 delta[edgeId] =0;

@@ -5,6 +5,8 @@ add_executable(ArborX_HDBSCAN.exe
   incidence_matrix.cpp 
   eulerTour.cpp
   alphaTree.cpp
+  eulerTourTree.cpp
+  betaTree.cpp 
   main.cpp
 )
 
@@ -18,6 +20,8 @@ add_executable(ArborX_mst2cluster.exe
   edge_hierarchy.cpp
   computeDelta.cpp 
   eulerTour.cpp
+  eulerTourTree.cpp
+  betaTree.cpp 
   alphaTree.cpp
   incidence_matrix.cpp 
   mst2cluster.cpp

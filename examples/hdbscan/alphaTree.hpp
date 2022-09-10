@@ -41,7 +41,7 @@ public:
     std::vector<int> getAlphaEdges();
     std::vector<int> getAlphaEdges(int maxLevel);
     void alphaEulerTour();
-    std::vector<int> computeBrideEdges();
+    std::vector<int> computeBridgeEdges();
     std::vector<int> constructAlphaTree();
     std::vector<int> constructEdgeTree();
     int findAlphaParent(int edgeId);
@@ -85,6 +85,7 @@ public:
     // int getAlphaEdge( int alEdgeId) {return alphaEdges[alEdgeId];}
     float getBrStabilityScore( int branchId) { return brStabilityScores[branchId]; }
     float getbrSHatScores( int branchId) { return brSHatScores[branchId]; }
+    std::vector<int> branchFlatCluster(std::vector<int>& brDelta, int m_numBranches);
 }; 
 
 struct branchEdgeComparator
@@ -102,3 +103,20 @@ struct branchEdgeComparator
     }
 };
 
+
+std::vector<indexedTimeStamp_t>
+createAlphaIdxTimeStamp(std::vector<int> &alphaEdges,
+                        std::vector<int> &mstEulerEntry,
+                        std::vector<int> &mstEulerExit);
+
+std::vector<int>
+computeFlatMap(int npts, const std::vector<branchEdge_t> &sortedBranchEdgeArr,
+               const std::vector<int> &brFlatCluster,
+               const std::vector<int> &brIHeads);
+
+std::vector<int> computeBridgeEdges(std::vector<indexedTimeStamp_t> &idxTS,
+                                    std::vector<int> &alphaEulerEntry,
+                                    std::vector<int> &alphaEulerExit);
+
+std::pair<std::vector<int>, std::vector<int>>
+computeAlphaEulerEntryExit(std::vector<indexedTimeStamp_t> &idxTS);

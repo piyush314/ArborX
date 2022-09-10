@@ -71,5 +71,7 @@ class edgeHierarchy_t
 
     // TODO: for checking shat from alpha tree delete it later 
     std::vector<float> sHatScore;
+
+    void testBetaTree();
 };
 

@@ -7,7 +7,7 @@
 // #define TIMING_BARRIER 1
 
 
-class timer_t
+class mytimer_t
 {
 protected:
     double wtime;
@@ -17,12 +17,12 @@ protected:
 
 public:
     std::string name;
-    timer_t()
+    mytimer_t()
     {
         wtime = 0;
         isStarted = 0;
     };
-    timer_t(std::string str)
+    mytimer_t(std::string str)
     {
         wtime = 0;
         isStarted = 0;

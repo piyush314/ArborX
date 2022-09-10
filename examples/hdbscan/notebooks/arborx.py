@@ -102,3 +102,4 @@ def plotSktHdbscan(dataFileName, min_cluster_size=5, saveFig=False, writeMST=Fal
         print("Writing mst to "+outFile)
         np.savetxt(outFile, clusterer.minimum_spanning_tree_._mst, 
             fmt='%.6f', delimiter='\t', newline='\n', footer='', comments='# ', encoding=None)
+    return clst; 
